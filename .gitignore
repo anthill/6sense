@@ -1,0 +1,10 @@
+node_modules/
+data/
+
+.DS_Store
+*.log
+app.js
+.app.js
+npm-debug.log
+*.pyc
+sftp-config*
