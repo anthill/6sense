@@ -1,6 +1,7 @@
 "use strict";
 require('./ES-mess');
 
+// maybe we could find a single CSV package, but will do for now
 var csvR = require('csv-parser');
 var csvW = require('fast-csv');
 var split = require('split');
