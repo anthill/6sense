@@ -4,8 +4,23 @@
   "description": "Counting devices wifi search",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "prepare": "sh shell/preinstall.sh",
+    "monitor": "sh shell/runMonitoring.sh"
   },
   "author": "ants",
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "csv-parser": "^1.5.2",
+    "es-env-polyfills": "^1.0.0",
+    "es6-map": "^0.1.1",
+    "es6-promise": "^2.0.1",
+    "es6-promisify": "^1.1.1",
+    "es6-set": "^0.1.1",
+    "fast-csv": "^0.6.0",
+    "moment-timezone": "^0.3.1",
+    "node-watch": "^0.3.4",
+    "split": "^0.3.3",
+    "through": "^2.3.7"
+  }
 }
