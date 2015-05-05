@@ -1,5 +1,5 @@
 "use strict";
-require('./ES-mess');
+require('es6-shim');
 
 // maybe we could find a single CSV package, but will do for now
 var csvR = require('csv-parser');
@@ -13,8 +13,6 @@ var watch = require('node-watch');
 var makeMap = require('./utils.js').makeMap;
 
 var OUTPUT_FILE = './output.csv';
-
-console.log('My watch has started... Winter is coming !');
 
 function writeCSVOutput(deviceMap){
     
@@ -145,7 +143,7 @@ function readCSVInput(file){
     });    
 }
 
-readCSVInput('./report-01.csv');
+readCSVInput('data/report-01.csv');
 
 // watch('./report-01.csv', function(file){
 //     readCSVInput(file);
