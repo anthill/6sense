@@ -1,5 +1,4 @@
 'use strict';
-require('./ES-mess');
 
 module.exports = {
 

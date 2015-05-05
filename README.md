@@ -5,7 +5,7 @@ This is sub project of 6element. The purpose is to count the number of devices a
 **Initialize project**
 
 ```bash
-npm run prepare
+npm run preinstall
 npm install
 ```
 
@@ -20,17 +20,15 @@ You can change the update rate in ```runMonitoring.sh``` at ```write-interval```
 This part is WIP.
 
 ```bash
-node deviceWatch.js
+node js/deviceWatch.js
 ```
 This starts a watcher on ```data/report-01.csv```, and updates ```data/output.csv```.
 ```data/output.csv``` is replaced at each refresh.
 
 ```bash
-node deviceWatch.js
+node js/n.js
 ```
 This starts a watcher on ```data/output.csv``` and updates ```data/history.csv```.
 Additionnal data is appended to ```data/history.csv``` at each refresh.
 Might not be super effective for now.
 
-
-Nothing more to add for now.
