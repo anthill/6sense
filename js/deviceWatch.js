@@ -12,7 +12,7 @@ var watch = require('node-watch');
 
 var makeMap = require('./utils.js').makeMap;
 
-var OUTPUT_FILE = './output.csv';
+var OUTPUT_FILE = 'data/output.csv';
 
 function writeCSVOutput(deviceMap){
     
@@ -145,7 +145,7 @@ function readCSVInput(file){
 
 readCSVInput('data/report-01.csv');
 
-// watch('./report-01.csv', function(file){
+// watch('data/report-01.csv', function(file){
 //     readCSVInput(file);
 // });
 
