@@ -1,11 +1,11 @@
 {
   "name": "6sense",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "description": "Counting devices wifi search",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "prepare": "sh shell/preinstall.sh",
+    "preinstall": "sh shell/preinstall.sh",
     "monitor": "sh shell/runMonitoring.sh"
   },
   "author": "ants",
