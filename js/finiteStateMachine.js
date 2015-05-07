@@ -1,24 +1,29 @@
 'use strict';
 require('es6-shim');
 
+var fs = require('fs');
 var machina = require('machina');
 var spawn = require('child_process').spawn;
+var fork = require('child_process').fork;
 
-var deviceWatchPath = require.resolve('./deviceWatch.js');
+var deviceWatch = require('./deviceWatch.js');
 
-var QUERY_TIMEOUT = 10*1000;
+var QUERY_TIMEOUT = 10*1000*2;
 
 function enterMonitorMode(){
     // this spawns the AIRMON-NG START process whose purpose is to set the wifi card in monitor mode
     // it is a one-shot process, that stops right after success
     return new Promise(function(resolve, reject){
+        console.log('Activating Monitor mode...');
         var myProcess = spawn("airmon-ng", ["start", "wlan0"]);
-        console.log("myProcess: ", myProcess.pid, "nodeProcess: ", process.pid);
 
         // on success, resolve Promise
         myProcess.stdout.on("data", function(chunkBuffer){
             // check chunk buffer for final line outoput and then enter
-            resolve(myProcess.pid);
+            var message = chunkBuffer.toString();
+            // console.log("stdout => " + message.trim());
+            if (message.match(/monitor mode vif enabled/))
+                resolve(myProcess.pid);
         });
 
         // on error, reject Promise
@@ -30,7 +35,6 @@ function enterMonitorMode(){
 
         // on timeout, reject Promise 
         setTimeout(function(){
-            console.log('Error => Timeout');
             reject(new Error("Entering monitor mode => Timeout"));
         }, QUERY_TIMEOUT);
     });
@@ -45,7 +49,10 @@ function exitMonitorMode(){
 
         // on success, resolve Promise
         myProcess.stdout.on("data", function(chunkBuffer){
-            resolve();
+            var message = chunkBuffer.toString();
+            // console.log("Data => " + message);
+            if (message.match(/monitor mode vif disabled/))
+                resolve(myProcess.pid);
         });
 
         // on error, reject Promise
@@ -57,7 +64,6 @@ function exitMonitorMode(){
 
         // on timeout, reject Promise 
         setTimeout(function(){
-            console.log('Error => Time out');
             reject(new Error("Exiting monitor mode => Timeout"));
         }, QUERY_TIMEOUT);
     });
@@ -73,8 +79,13 @@ function startRecording(optObj){
         Both will need to be killed.
     */
 
-    var file = optObj['--write'] + 'report-01.csv'; // path to airodump output file
+    console.log('Starting recording process...');
+
+    optObj['--write'] += 'report'; // path to airodump output file
+    var file = optObj['--write'] + '-01.csv'; // path to airodump output file
     var options = [];
+
+    // console.log('file', file);
 
     for (var field in optObj){
         if (field !== 'interface'){
@@ -88,79 +99,89 @@ function startRecording(optObj){
 
     // spawning airodump process
     return new Promise(function(resolve, reject){
+        console.log('Starting airodump process');
         var airodumpProcess = spawn("airodump-ng", options);
         console.log("airodumpProcess: ", airodumpProcess.pid);
 
-        // on success, resolve Promise with process references
-        airodumpProcess.stdout.on("data", function(chunkBuffer){
-            resolve(airodumpProcess);
-        });
+        // // on success, resolve Promise with process references
+        // airodumpProcess.stdout.on("data", function(chunkBuffer){
+        //     var message = chunkBuffer.toString();
+        //     console.log("airodump data => " + message);
+        //     resolve(airodumpProcess);
+        // });
 
         // on error, reject Promise
         airodumpProcess.stderr.on("data", function(chunkBuffer){
-            var message = chunkBuffer.toString();
-            console.log("airodump Error => " + message);
-            reject((new Error("airodump Error => " + message));
+            // var message = chunkBuffer.toString();
+            // console.log("airodump Error => " + message);
+
+            resolve({
+                file: file,
+                airodumpProcess: airodumpProcess
+            });
+            // reject(new Error("airodump Error => " + message));
         });
 
         // on timeout, reject Promise
         setTimeout(function(){
-            console.log('airodump Error => Timeout');
+            // console.log('airodump Error => Timeout');
             reject(new Error("airodump Error => Timeout"));
         }, QUERY_TIMEOUT);
-    })
-    // spawning deviceWatch process
-    .then(function(airodumpProcess){
-        var deviceWatchProcess = spawn(deviceWatchPath, [file]);
-        console.log("deviceWatchProcess: ", deviceWatchProcess.pid);
-
-        // on success, resolve Promise with both process references
-        deviceWatchProcess.stdout.on("data", function(chunkBuffer){
-            resolve({
-                file: file,
-                processes: [airodumpProcess, deviceWatchProcess]
-            });
-        });
-
-        // on error, reject Promise and kill airodump process
-        deviceWatchProcess.stderr.on("data", function(chunkBuffer){
-            var message = chunkBuffer.toString();
-            console.log("deviceWatch Error => " + message);
-
-            airodumpProcess.kill();
-            airodumpProcess.on('exit', function(){
-                reject(new Error("deviceWatch Error => " + message));
-            });
-            
-        });
-
-        // on timeout, reject Promise and kill airodump process
-        setTimeout(function(){
-            console.log('deviceWatch Error => Timeout');
-
-            airodumpProcess.kill();
-            airodumpProcess.on('exit', function(){
-                reject(new Error("deviceWatch Error => Timeout"));
-            });
-        }, QUERY_TIMEOUT);
     });
+    // // spawning deviceWatch process
+    // .then(function(airodumpProcess){
+    //     console.log('Starting watching process: ', file);
+    //     var deviceWatchProcess = spawn('node', [deviceWatchPath, file]);
+    //     console.log("deviceWatchProcess: ", deviceWatchProcess);
+    //     // console.log("deviceWatchProcess: ", deviceWatchProcess.stdout);
+
+    //     // on success, resolve Promise with both process references
+    //     deviceWatchProcess.stdout.on("data", function(chunkBuffer){
+    //         console.log('File watched', file);
+    //         console.log('airodump process ongoing', airodumpProcess);
+    //         console.log('Watching process ongoing', deviceWatchProcess);
+
+    //         return {
+    //             file: file,
+    //             processes: [airodumpProcess, deviceWatchProcess]
+    //         };
+    //     });
+
+    //     // on error, reject Promise and kill airodump process
+    //     deviceWatchProcess.stderr.on("data", function(chunkBuffer){
+    //         var message = chunkBuffer.toString();
+    //         console.log("deviceWatch Error => " + message);
+
+    //         airodumpProcess.kill();
+    //         airodumpProcess.on('exit', function(){
+    //             return new Error("deviceWatch Error => " + message);
+    //         });
+            
+    //     });
+
+    //     // on timeout, reject Promise and kill airodump process
+    //     setTimeout(function(){
+    //         airodumpProcess.kill();
+    //         airodumpProcess.on('exit', function(){
+    //             return new Error("deviceWatch Error => Timeout");
+    //         });
+    //     }, QUERY_TIMEOUT);
+    // });
 }
 
-function stopRecording(processes){
+function stopRecording(process){
 
-    var areExitedP = processes.map(function(process){
+    console.log('Stopping process...');
 
-        return new Promise(function(resolve, reject){
-            console.log('killing process id', pid);
-            process.kill();
-            process.on('exit', function(code){
-                console.log('Process killed', )
-                resolve(code);
-            });
-        })
-    });
+    return new Promise(function(resolve, reject){
+        console.log('killing process id', process.pid);
+        process.kill();
+        process.on('exit', function(code){
+            console.log('Process killed');
+            resolve(code);
+        });
+    })
 
-    return Promise.all(areExitedP);
 }
 
 var fsm = new machina.Fsm({
@@ -171,20 +192,26 @@ var fsm = new machina.Fsm({
 
     initialState: "sleeping",
 
+    process: null,
+    file: null,
+
     states: {
         "sleeping": {
             
             _onEnter: function() {
-                console.log('ZZZzzzZZZzzz...')
+                console.log('ZZZzzzZZZzzz...', this.state);
             },
 
             wakeUp: function(){
+                var self = this;
+
                 enterMonitorMode()
                 .then(function(){
                     console.log('OK all good !');
-                    this.transition('monitoring');
+                    self.transition('monitoring');
                 })
                 .catch(function(err){ // if error, what about deferUntilTransition ? still pending ??
+                    console.log('err', err, err.stack);
                     console.log('Couldn\'t enter Monitor mode... Going back to sleep.');
                 });
             },
@@ -203,69 +230,89 @@ var fsm = new machina.Fsm({
         "monitoring": {
             
             _onEnter: function(){
-                console.log('Entering monitoring state');
+                console.log('Entering ' + this.state + ' state');
             },
                         
             tryToSleep: function(){
+                var self = this;
+
                 exitMonitorMode()
                 .then(function(){
                     console.log('Monitor mode deactivated');
-                    this.transition('sleeping');
+                    self.transition('sleeping');
                 })
                 .catch(function(err){
+                    console.log('err', err, err.stack);
                     console.log('Couldn\'t exit Monitor mode, still monitoring');
                 });
             },
+
+            sleep: "sleeping",
             
             record: function(options){
+                var self = this;
 
                 startRecording(options)
                 .then(function(results){
-                    this.transition('recording', results);
+                    self.file = results.file;
+                    self.process = results.airodumpProcess;
+                    self.transition('recording');
                 })
-                .catch(function(){
+                .catch(function(err){
+                    console.log('err', err, err.stack);
                     console.log('Couldn\'t enter Recording mode, still monitoring')
                 });
             },
             
             _onExit: function(){
-                console.lob('Exiting monitoring state');
+                if (this.file){
+
+                }
+                
+                console.log('Exiting monitoring state');
             }
         },
 
         "recording": {
-
-            runningProcesses: [],
-            file: null,
             
             _onEnter: function(results){
-                this.file = results.file;
-                this.runningProcesses = results.processes;
-                
-                console.log('Entering recording state');
-                console.log('process ids', processes[0].id, processes[1].id);
+                var self = this;
+                console.log('Entering ' + this.state + ' state');
+                fs.watch(this.file, function(){
+                    deviceWatch(self.file);
+                });                
             },
             
             tryToSleep: function(){
                 this.deferUntilTransition();
-                stopRecording(this.airodumpPid, this.recordPid)
-                .then(function(){
-                    this.transition('monitoring');
-                });
+                this.handle('pause');
             },
 
             pause: function(){
-                stopRecording(this.runningProcesses)
-                .then(function(codes){
-                    this.transition('monitoring');
+                var self = this;
+
+                console.log('pausing', this.process.pid);
+                stopRecording(this.process)
+                .then(function(){
+                    console.log('Stopping the file watch');
+                    fs.unwatchFile(self.file); // unwatchFile doesn't seem to work... maybe just use setTimeout instead of watch ???
+                    self.transition('monitoring');
+                })
+                .catch(function(err){
+                    console.log('err', err, err.stack);
+                    console.log('Couldn\'t exit Recording mode, still monitoring');
                 });
             },
             
             _onExit: function(){
-                spawn('rm', ['-fr', this.file]);
-                this.file = null;
-                this.runningProcesses = [];
+                var self = this;
 
+                setTimeout(function(){
+                    spawn('rm', ['-fr', self.file]);
+                }, 5000);
+
+                this.file = null;
+                this.processes = null;
                 console.log('Exiting recording state');
             }
         }
@@ -279,14 +326,23 @@ var fsm = new machina.Fsm({
         this.handle('tryToSleep');
     },
 
-    record: function(format, refreshTime, path, interface){
+    record: function(){
+    // record: function(format, refreshTime, path, myInterface){
+
+        // var options = {
+        //     '--output-format': format,
+        //     '--berlin': refreshTime,
+        //     '--write-interval': refreshTime,
+        //     '--write': path,
+        //     'interface': myInterface
+        // };
 
         var options = {
-            '--output-format': format,
-            '--berlin': refreshTime,
-            '--write-interval': refreshTime,
-            '--write': path,
-            'interface': interface
+            '--output-format': 'csv',
+            '--berlin': 120,
+            '--write-interval': 10,
+            '--write': './data/',
+            'interface': 'wlan0mon'
         };
 
         this.handle('record', options);
@@ -295,6 +351,6 @@ var fsm = new machina.Fsm({
     pause: function(){
         this.handle('pause')
     }
-
-
 });
+
+module.exports = fsm;
