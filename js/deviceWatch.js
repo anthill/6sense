@@ -143,14 +143,14 @@ function readCSVInput(file){
     });    
 }
 
-readCSVInput('data/report-01.csv');
+// readCSVInput('data/report-01.csv');
 
 // watch('data/report-01.csv', function(file){
 //     readCSVInput(file);
 // });
 
-// module.exports = function(inputFile){
-//     watch(inputFile, function(file){
-//         readCSVInput(file);
-//     });
-// }
+module.exports = function(inputFile){
+    watch(inputFile, function(file){
+        readCSVInput(file);
+    });
+}
