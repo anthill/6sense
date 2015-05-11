@@ -17,12 +17,13 @@ function writeCSVOutput(deviceMap){
     now.tz('Europe/Paris').format();
 
     // ... return to 5 min before ...
-    now.subtract(5, 'm');
-    now.startOf('minute');
+    var before = now.clone();
+    before.subtract(6, 'm'); // skipping current minute by taking 5 minutes from 6 minutes ago
+    before.startOf('minute');
 
     // ... and take all 5 minutes from there
     var minutes = [0, 1, 2, 3];
-    var dates = [now.format()];
+    var dates = [before.format()];
 
     minutes.forEach(function(minute){
         dates.push(now.add(1, 'm').format());
@@ -139,5 +140,8 @@ function readCSVInput(file){
 }
 
 module.exports = function(file){
-    readCSVInput(file);
-}
+    console.log('Processing file...');
+    setTimeout(function(){ // smoothing timings
+        readCSVInput(file);
+    }, 500);   
+};

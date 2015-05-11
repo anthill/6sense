@@ -85,8 +85,6 @@ function startRecording(optObj){
     var file = optObj['--write'] + '-01.csv'; // path to airodump output file
     var options = [];
 
-    // console.log('file', file);
-
     for (var field in optObj){
         if (field !== 'interface'){
             options.push(field);
@@ -103,70 +101,19 @@ function startRecording(optObj){
         var airodumpProcess = spawn("airodump-ng", options);
         console.log("airodumpProcess: ", airodumpProcess.pid);
 
-        // // on success, resolve Promise with process references
-        // airodumpProcess.stdout.on("data", function(chunkBuffer){
-        //     var message = chunkBuffer.toString();
-        //     console.log("airodump data => " + message);
-        //     resolve(airodumpProcess);
-        // });
-
-        // on error, reject Promise
+        // on error, resolve Promise => weird, but ok
         airodumpProcess.stderr.on("data", function(chunkBuffer){
-            // var message = chunkBuffer.toString();
-            // console.log("airodump Error => " + message);
-
             resolve({
                 file: file,
                 airodumpProcess: airodumpProcess
             });
-            // reject(new Error("airodump Error => " + message));
         });
 
         // on timeout, reject Promise
         setTimeout(function(){
-            // console.log('airodump Error => Timeout');
             reject(new Error("airodump Error => Timeout"));
         }, QUERY_TIMEOUT);
     });
-    // // spawning deviceWatch process
-    // .then(function(airodumpProcess){
-    //     console.log('Starting watching process: ', file);
-    //     var deviceWatchProcess = spawn('node', [deviceWatchPath, file]);
-    //     console.log("deviceWatchProcess: ", deviceWatchProcess);
-    //     // console.log("deviceWatchProcess: ", deviceWatchProcess.stdout);
-
-    //     // on success, resolve Promise with both process references
-    //     deviceWatchProcess.stdout.on("data", function(chunkBuffer){
-    //         console.log('File watched', file);
-    //         console.log('airodump process ongoing', airodumpProcess);
-    //         console.log('Watching process ongoing', deviceWatchProcess);
-
-    //         return {
-    //             file: file,
-    //             processes: [airodumpProcess, deviceWatchProcess]
-    //         };
-    //     });
-
-    //     // on error, reject Promise and kill airodump process
-    //     deviceWatchProcess.stderr.on("data", function(chunkBuffer){
-    //         var message = chunkBuffer.toString();
-    //         console.log("deviceWatch Error => " + message);
-
-    //         airodumpProcess.kill();
-    //         airodumpProcess.on('exit', function(){
-    //             return new Error("deviceWatch Error => " + message);
-    //         });
-            
-    //     });
-
-    //     // on timeout, reject Promise and kill airodump process
-    //     setTimeout(function(){
-    //         airodumpProcess.kill();
-    //         airodumpProcess.on('exit', function(){
-    //             return new Error("deviceWatch Error => Timeout");
-    //         });
-    //     }, QUERY_TIMEOUT);
-    // });
 }
 
 function stopRecording(process){
@@ -181,7 +128,6 @@ function stopRecording(process){
             resolve(code);
         });
     })
-
 }
 
 var fsm = new machina.Fsm({
@@ -194,12 +140,13 @@ var fsm = new machina.Fsm({
 
     process: null,
     file: null,
+    watcher: null,
 
     states: {
         "sleeping": {
             
             _onEnter: function() {
-                console.log('ZZZzzzZZZzzz...', this.state);
+                console.log('ZZZzzzZZZzzz... ', this.state, ' ...ZZZzzzZZZzzz');
             },
 
             wakeUp: function(){
@@ -230,7 +177,7 @@ var fsm = new machina.Fsm({
         "monitoring": {
             
             _onEnter: function(){
-                console.log('Entering ' + this.state + ' state');
+                console.log('============== ' + this.state + ' ==============');
             },
                         
             tryToSleep: function(){
@@ -265,10 +212,6 @@ var fsm = new machina.Fsm({
             },
             
             _onExit: function(){
-                if (this.file){
-
-                }
-                
                 console.log('Exiting monitoring state');
             }
         },
@@ -277,10 +220,14 @@ var fsm = new machina.Fsm({
             
             _onEnter: function(results){
                 var self = this;
-                console.log('Entering ' + this.state + ' state');
-                fs.watch(this.file, function(){
-                    deviceWatch(self.file);
-                });                
+                console.log('************** ' + this.state + ' **************');
+                console.log('Watching ' + this.file);
+                setTimeout(function(){ // smoothing timings
+                    self.watcher = fs.watch(self.file, function(){
+                        deviceWatch(self.file);
+                    });   
+                }, 1000);
+                             
             },
             
             tryToSleep: function(){
@@ -295,7 +242,7 @@ var fsm = new machina.Fsm({
                 stopRecording(this.process)
                 .then(function(){
                     console.log('Stopping the file watch');
-                    fs.unwatchFile(self.file); // unwatchFile doesn't seem to work... maybe just use setTimeout instead of watch ???
+                    self.watcher.close();
                     self.transition('monitoring');
                 })
                 .catch(function(err){
@@ -307,12 +254,12 @@ var fsm = new machina.Fsm({
             _onExit: function(){
                 var self = this;
 
-                setTimeout(function(){
+                setTimeout(function(){ // smoothing timings
                     spawn('rm', ['-fr', self.file]);
-                }, 5000);
-
-                this.file = null;
-                this.processes = null;
+                    this.file = null;
+                    this.processes = null;
+                    this.watcher = null;
+                }, 500);
                 console.log('Exiting recording state');
             }
         }
@@ -326,20 +273,24 @@ var fsm = new machina.Fsm({
         this.handle('tryToSleep');
     },
 
-    record: function(){
-    // record: function(format, refreshTime, path, myInterface){
-
-        // var options = {
-        //     '--output-format': format,
-        //     '--berlin': refreshTime,
-        //     '--write-interval': refreshTime,
-        //     '--write': path,
-        //     'interface': myInterface
-        // };
+    // This is in case you need to call RECORD with arguments. Not using it since it's not practical
+        
+    /*record: function(format, refreshTime, path, myInterface){
 
         var options = {
+            '--output-format': format,
+            '--berlin': refreshTime,
+            '--write-interval': refreshTime,
+            '--write': path,
+            'interface': myInterface
+        };
+    */
+
+    record: function(){
+        
+        var options = {
             '--output-format': 'csv',
-            '--berlin': 120,
+            '--berlin': 300,
             '--write-interval': 10,
             '--write': './data/',
             'interface': 'wlan0mon'

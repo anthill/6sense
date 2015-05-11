@@ -20,10 +20,10 @@ var fsm = require('./js/finiteStateMachine.js');
 
 API is:
 ```
-fsm.wakeUp();
-fsm.goToSleep();
-fsm.record();
-fsm.pause();
+fsm.wakeUp() // from 'sleeping' to 'monitoring'
+fsm.goToSleep(); // from 'monitoring' or 'recording' back to 'sleeping'
+fsm.record(); // from 'sleeping' or 'monitoring' to 'recording'
+fsm.pause(); // from 'recording' to 'monitoring'
 ```
 
 
