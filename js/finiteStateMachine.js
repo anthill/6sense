@@ -160,6 +160,7 @@ var fsm = new machina.Fsm({
                 .catch(function(err){ // if error, what about deferUntilTransition ? still pending ??
                     console.log('err', err, err.stack);
                     console.log('Couldn\'t enter Monitor mode... Going back to sleep.');
+                    exitMonitorMode();
                 });
             },
 
@@ -269,7 +270,7 @@ var fsm = new machina.Fsm({
         this.handle('wakeUp');
     },
 
-    goToSleep: function(){
+    sleep: function(){
         this.handle('tryToSleep');
     },
 
@@ -287,7 +288,7 @@ var fsm = new machina.Fsm({
     */
 
     record: function(){
-        
+
         var options = {
             '--output-format': 'csv',
             '--berlin': 300,

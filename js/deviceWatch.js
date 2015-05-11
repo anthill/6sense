@@ -26,7 +26,7 @@ function writeCSVOutput(deviceMap){
     var dates = [before.format()];
 
     minutes.forEach(function(minute){
-        dates.push(now.add(1, 'm').format());
+        dates.push(before.add(1, 'm').format());
     });
 
     // initialize map
@@ -140,7 +140,7 @@ function readCSVInput(file){
 }
 
 module.exports = function(file){
-    console.log('Processing file...');
+    console.log('Processing file... ', new Date());
     setTimeout(function(){ // smoothing timings
         readCSVInput(file);
     }, 500);   
