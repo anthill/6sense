@@ -1,14 +1,9 @@
-"use strict";
-require('es6-shim');
-
 // maybe we could find a single CSV package, but will do for now
 var csvR = require('csv-parser');
 var csvW = require('fast-csv');
 var split = require('split');
-var fs = require('fs');
 var through = require('through');
 var moment = require('moment-timezone');
-var watch = require('node-watch');
 
 var makeMap = require('./utils.js').makeMap;
 
@@ -22,15 +17,16 @@ function writeCSVOutput(deviceMap){
     now.tz('Europe/Paris').format();
 
     // ... return to 5 min before ...
-    now.subtract(5, 'm');
-    now.startOf('minute');
+    var before = now.clone();
+    before.subtract(6, 'm'); // skipping current minute by taking 5 minutes from 6 minutes ago
+    before.startOf('minute');
 
     // ... and take all 5 minutes from there
     var minutes = [0, 1, 2, 3];
-    var dates = [now.format()];
+    var dates = [before.format()];
 
     minutes.forEach(function(minute){
-        dates.push(now.add(1, 'm').format());
+        dates.push(before.add(1, 'm').format());
     });
 
     // initialize map
@@ -51,9 +47,9 @@ function writeCSVOutput(deviceMap){
         });
     });
 
-    deviceNumberMap.forEach(function(nb, date){
-        console.log('nb of devices', date, nb);
-    })
+    // deviceNumberMap.forEach(function(nb, date){
+    //     console.log('nb of devices', date, nb);
+    // })
 
     var outputList = [];
     // deviceNumberMap back to list before CSV write: 5... 4... 3... 2... 1...
@@ -105,7 +101,7 @@ function formatOutput(devices){
 
         return newObject;
     });
-    console.log('nb devices watched', cleanedDevices.length);
+    // console.log('nb devices watched', cleanedDevices.length);
 
     // update device database
     cleanedDevices.forEach(function(cleanDevice){
@@ -143,14 +139,9 @@ function readCSVInput(file){
     });    
 }
 
-readCSVInput('data/report-01.csv');
-
-// watch('data/report-01.csv', function(file){
-//     readCSVInput(file);
-// });
-
-// module.exports = function(inputFile){
-//     watch(inputFile, function(file){
-//         readCSVInput(file);
-//     });
-// }
+module.exports = function(file){
+    console.log('Processing file... ', new Date());
+    setTimeout(function(){ // smoothing timings
+        readCSVInput(file);
+    }, 500);   
+};

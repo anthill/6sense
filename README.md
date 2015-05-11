@@ -5,30 +5,27 @@ This is sub project of 6element. The purpose is to count the number of devices a
 **Initialize project**
 
 ```bash
-npm run preinstall
+npm run prepare
 npm install
 ```
 
 **Launch Monitoring**
 ```bash
-npm run monitor
+sudo node
 ```
-This monitors all devices and updates ```data/report-01.csv```.
-You can change the update rate in ```runMonitoring.sh``` at ```write-interval```(in seconds).
-
-**Write outputs**
-This part is WIP.
-
-```bash
-node js/deviceWatch.js
+Then, in node console, start a finite state machine:
 ```
-This starts a watcher on ```data/report-01.csv```, and updates ```data/output.csv```.
-```data/output.csv``` is replaced at each refresh.
-
-```bash
-node js/n.js
+var fsm = require('./js/finiteStateMachine.js');
 ```
-This starts a watcher on ```data/output.csv``` and updates ```data/history.csv```.
-Additionnal data is appended to ```data/history.csv``` at each refresh.
-Might not be super effective for now.
+
+API is:
+```
+fsm.wakeUp()  // from 'sleeping' to 'monitoring'
+fsm.sleep();  // from 'monitoring' or 'recording' back to 'sleeping'
+fsm.record(); // from 'sleeping' or 'monitoring' to 'recording'
+fsm.pause();  // from 'recording' to 'monitoring'
+```
+
+
+
 
