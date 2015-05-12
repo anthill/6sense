@@ -9,67 +9,113 @@ var makeMap = require('./utils.js').makeMap;
 
 var OUTPUT_FILE = 'data/output.csv';
 
+var shouldProcessFile = true;
+
+// WARNING: these power level values depend on the driver...
+var powerLevels = [-100, -80, -60, -40, -20, -1]
+
 function writeCSVOutput(deviceMap){
-    
-    // get now moment ...
-    var now = new Date();
-    var now = moment.tz(now, 'GMT');
-    now.tz('Europe/Paris').format();
 
-    // ... return to 5 min before ...
-    var before = now.clone();
-    before.subtract(6, 'm'); // skipping current minute by taking 5 minutes from 6 minutes ago
-    before.startOf('minute');
+    return new Promise(function(resolve, reject){
+        // get now moment ...
+        var now = new Date();
+        var now = moment.tz(now, 'GMT');
+        now.tz('Europe/Paris').format();
 
-    // ... and take all 5 minutes from there
-    var minutes = [0, 1, 2, 3];
-    var dates = [before.format()];
+        // ... return to 5 min before ...
+        var before = now.clone();
+        before.subtract(6, 'm'); // skipping current minute by taking 5 minutes from 6 minutes ago
+        before.startOf('minute');
 
-    minutes.forEach(function(minute){
-        dates.push(before.add(1, 'm').format());
-    });
+        // ... and take all 5 minutes from there
+        var minutes = [0, 1, 2, 3];
+        var dates = [before.format()];
 
-    // initialize map
-    var deviceNumberMap = new Map();
-    dates.forEach(function(date){
-        deviceNumberMap.set(date, 0);
-    })
+        minutes.forEach(function(minute){
+            dates.push(before.add(1, 'm').format());
+        });
 
-    // assign device presence to dates
-    deviceMap.forEach(function(device){
-
-        var start = device["First time seen"];
-        var end = device["Last time seen"];
-
+        // initialize maps
+        var deviceNumberMap = new Map();
         dates.forEach(function(date){
-            if (start <= date && date < end)
-                deviceNumberMap.set(date, deviceNumberMap.get(date) + 1);
+            var devicePowerMap = new Map();
+
+            powerLevels.forEach(function(level){
+                devicePowerMap.set(level, 0)
+            });
+            devicePowerMap.set('none', 0); // -1 case
+            devicePowerMap.set('total', 0); // total
+
+            deviceNumberMap.set(date, devicePowerMap);
+        })
+
+        // assign device presence to dates
+        deviceMap.forEach(function(device){
+
+            var start = device["First time seen"];
+            var end = device["Last time seen"];
+            var power = device["Power"];
+
+            dates.forEach(function(date){
+                if (start <= date && date < end){
+                    var devicePowerMap = deviceNumberMap.get(date);
+
+                    if (power === -1)
+                        devicePowerMap.set('none', devicePowerMap.get('none') + 1);
+                    else {
+                        for (var i = 0; i < powerLevels.length; i++){
+                            var level = powerLevels[i];
+                            if (power < level){
+                                devicePowerMap.set(level, devicePowerMap.get(level) + 1);
+                                break;
+                            }    
+                        }
+                    }
+
+                    devicePowerMap.set('total', devicePowerMap.get('total') + 1);
+
+                    deviceNumberMap.set(date, devicePowerMap);
+                }
+                    
+            });
         });
-    });
 
-    // deviceNumberMap.forEach(function(nb, date){
-    //     console.log('nb of devices', date, nb);
-    // })
+        // deviceNumberMap.forEach(function(nb, date){
+        //     console.log('nb of devices', date, nb);
+        // })
 
-    var outputList = [];
-    // deviceNumberMap back to list before CSV write: 5... 4... 3... 2... 1...
-    deviceNumberMap.forEach(function(nb, date){
-        outputList.push({
-            date: date,
-            deviceNb: nb
+        var outputList = [];
+        // deviceNumberMap back to list before CSV write: 5... 4... 3... 2... 1...
+        deviceNumberMap.forEach(function(devicePowerMap, date){
+            var obj = {date: date};
+
+            devicePowerMap.forEach(function(nb, level){
+                obj[level] = nb;
+            });
+
+            console.log('obj', obj);
+            outputList.push(obj);
+            
         });
+
+        var csvStream = csvW.format({headers: false}),
+            writableStream = fs.createWriteStream(OUTPUT_FILE);
+
+        writableStream.on("finish", function(){
+            console.log('Updated output.csv');
+            resolve();
+        });
+
+        csvStream.pipe(writableStream);
+
+        outputList.forEach(function(input){
+            csvStream.write(input);
+        });
+
+        csvStream.end();
     });
-
-    var csvStream = csvW.format({headers: false}),
-        writableStream = fs.createWriteStream(OUTPUT_FILE);
-     
-    csvStream.pipe(writableStream);
-
-    outputList.forEach(function(input){
-        csvStream.write(input);
-    });
-
-    csvStream.end();
+    
+    
 }
 
 function formatOutput(devices){
@@ -112,36 +158,53 @@ function formatOutput(devices){
 }
 
 function readCSVInput(file){
-    var process = false;
 
-    var devices = [];
+    return new Promise(function(resolve, reject){
+        var shouldProcessLine = false;
 
-    fs.createReadStream(file)
-    .pipe(split())
-    .pipe(through(function(line){
-        // Only consider second part of the original CSV file, the one that starts with 'Station MAC'
-        if (line.match(/^Station/) || process === true){
-            if (line.match(/^$/))
-                process = false;
-            else {
-                this.queue(line + '\n');
-                process = true;
+        var devices = [];
+
+        fs.createReadStream(file)
+        .pipe(split())
+        .pipe(through(function(line){
+            // Only consider second part of the original CSV file, the one that starts with 'Station MAC'
+            if (line.match(/^Station/) || shouldProcessLine === true){
+                if (line.match(/^$/))
+                    shouldProcessLine = false;
+                else {
+                    this.queue(line + '\n');
+                    shouldProcessLine = true;
+                }
             }
-        }
-    }))
-    .pipe(csvR())
-    .on('data', function(data){
-        devices.push(data);
-    })
-    .on('end', function(data){
-        var deviceMap = formatOutput(devices);
-        writeCSVOutput(deviceMap);
-    });    
+        }))
+        .pipe(csvR())
+        .on('data', function(data){
+            devices.push(data);
+        })
+        .on('end', function(data){
+            var deviceMap = formatOutput(devices);
+            writeCSVOutput(deviceMap)
+            .then(function(){
+                resolve();
+            });
+        }); 
+    });
+       
 }
 
 module.exports = function(file){
-    console.log('Processing file... ', new Date());
-    setTimeout(function(){ // smoothing timings
-        readCSVInput(file);
-    }, 500);   
+    
+    if (shouldProcessFile){
+        shouldProcessFile = false;
+
+        console.log('Processing file... ', new Date());
+
+        setTimeout(function(){ // smoothing timings
+            readCSVInput(file)
+            .then(function(){
+                shouldProcessFile = true;
+            });
+        }, 500);
+    }
+     
 };
