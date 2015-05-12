@@ -12,7 +12,7 @@ var OUTPUT_FILE = 'data/output.csv';
 var shouldProcessFile = true;
 
 // WARNING: these power level values depend on the driver...
-var powerLevels = [-100, -80, -60, -40, -20, -1]
+var powerLevels = [-80, -60, -50, -1]
 
 function writeCSVOutput(deviceMap){
 
@@ -194,6 +194,7 @@ function readCSVInput(file){
 
 module.exports = function(file){
     
+    // we process the file only if the previous process has finished. This is to avoid overwatching
     if (shouldProcessFile){
         shouldProcessFile = false;
 
