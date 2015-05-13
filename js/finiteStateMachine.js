@@ -14,7 +14,7 @@ function enterMonitorMode(myInterface){
     // this spawns the AIRMON-NG START process whose purpose is to set the wifi card in monitor mode
     // it is a one-shot process, that stops right after success
     return new Promise(function(resolve, reject){
-        console.log('Activating Monitor mode...');
+        console.log('Activating Monitor mode... ' + myInterface);
         var myProcess = spawn("airmon-ng", ["start", myInterface]);
 
         // on success, resolve Promise
@@ -44,7 +44,7 @@ function exitMonitorMode(myInterface){
     // this spawns the AIRMON-NG STOP process, whose purpose is to set the wifi card in normal mode
     // it is a one-shot process, that stops right after success
     return new Promise(function(resolve, reject){
-        console.log("Deactivating Monitor mode...");
+        console.log("Deactivating Monitor mode... " + myInterface);
         var myProcess = spawn("airmon-ng", ["stop", myInterface + "mon"]);
 
         // on success, resolve Promise

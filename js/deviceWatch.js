@@ -11,9 +11,6 @@ var OUTPUT_FILE = 'data/output.csv';
 
 var shouldProcessFile = true;
 
-// WARNING: these power level values depend on the driver...
-var powerLevels = [-80, -60, -50, -1]
-
 function writeCSVOutput(deviceMap){
 
     return new Promise(function(resolve, reject){
@@ -36,67 +33,43 @@ function writeCSVOutput(deviceMap){
         });
 
         // initialize maps
-        var deviceNumberMap = new Map();
+        var deviceLevelMap = new Map();
         dates.forEach(function(date){
-            var devicePowerMap = new Map();
+            deviceLevelMap.set(date, []);
+        });
 
-            powerLevels.forEach(function(level){
-                devicePowerMap.set(level, 0)
-            });
-            devicePowerMap.set('none', 0); // -1 case
-            devicePowerMap.set('total', 0); // total
+        // assign a power level list to each date
+        dates.forEach(function(date){
 
-            deviceNumberMap.set(date, devicePowerMap);
-        })
+            deviceMap.forEach(function(device){
 
-        // assign device presence to dates
-        deviceMap.forEach(function(device){
+                var start = device["First time seen"];
+                var end = device["Last time seen"];
+                var power = device["Power"];
 
-            var start = device["First time seen"];
-            var end = device["Last time seen"];
-            var power = device["Power"];
-
-            dates.forEach(function(date){
                 if (start <= date && date < end){
-                    var devicePowerMap = deviceNumberMap.get(date);
-
-                    if (power === -1)
-                        devicePowerMap.set('none', devicePowerMap.get('none') + 1);
-                    else {
-                        for (var i = 0; i < powerLevels.length; i++){
-                            var level = powerLevels[i];
-                            if (power < level){
-                                devicePowerMap.set(level, devicePowerMap.get(level) + 1);
-                                break;
-                            }    
-                        }
-                    }
-
-                    devicePowerMap.set('total', devicePowerMap.get('total') + 1);
-
-                    deviceNumberMap.set(date, devicePowerMap);
+                    var deviceLevels = deviceLevelMap.get(date);
+                    deviceLevels.push(power);
+                    deviceLevelMap.set(date, deviceLevels);
                 }
-                    
             });
         });
 
-        // deviceNumberMap.forEach(function(nb, date){
+        // deviceLevelMap.forEach(function(nb, date){
         //     console.log('nb of devices', date, nb);
         // })
 
         var outputList = [];
-        // deviceNumberMap back to list before CSV write: 5... 4... 3... 2... 1...
-        deviceNumberMap.forEach(function(devicePowerMap, date){
-            var obj = {date: date};
-
-            devicePowerMap.forEach(function(nb, level){
-                obj[level] = nb;
+        // deviceLevelMap back to list before CSV write
+        deviceLevelMap.forEach(function(deviceLevels, date){
+            outputList.push({
+                date: date,
+                deviceLevels: deviceLevels,
+                nb: deviceLevels.length
             });
-
-            console.log('obj', obj);
-            outputList.push(obj);
-            
         });
+
+        console.log('output', outputList);
 
         var csvStream = csvW.format({headers: false}),
             writableStream = fs.createWriteStream(OUTPUT_FILE);
