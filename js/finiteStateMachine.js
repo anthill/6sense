@@ -10,12 +10,12 @@ var deviceWatch = require('./deviceWatch.js');
 
 var QUERY_TIMEOUT = 10*1000*2;
 
-function enterMonitorMode(){
+function enterMonitorMode(myInterface){
     // this spawns the AIRMON-NG START process whose purpose is to set the wifi card in monitor mode
     // it is a one-shot process, that stops right after success
     return new Promise(function(resolve, reject){
-        console.log('Activating Monitor mode...');
-        var myProcess = spawn("airmon-ng", ["start", "wlan0"]);
+        console.log('Activating Monitor mode... ' + myInterface);
+        var myProcess = spawn("airmon-ng", ["start", myInterface]);
 
         // on success, resolve Promise
         myProcess.stdout.on("data", function(chunkBuffer){
@@ -40,12 +40,12 @@ function enterMonitorMode(){
     });
 }
 
-function exitMonitorMode(){
+function exitMonitorMode(myInterface){
     // this spawns the AIRMON-NG STOP process, whose purpose is to set the wifi card in normal mode
     // it is a one-shot process, that stops right after success
     return new Promise(function(resolve, reject){
-        console.log("Deactivating Monitor mode...");
-        var myProcess = spawn("airmon-ng", ["stop", "wlan0mon"]);
+        console.log("Deactivating Monitor mode... " + myInterface);
+        var myProcess = spawn("airmon-ng", ["stop", myInterface + "mon"]);
 
         // on success, resolve Promise
         myProcess.stdout.on("data", function(chunkBuffer){
@@ -90,7 +90,7 @@ function startRecording(optObj){
             options.push(field);
             options.push(optObj[field]);
         } else
-            options.push(optObj[field]);   
+            options.push(optObj[field] + 'mon');   
     }
 
     console.log('options list', options);
@@ -138,6 +138,7 @@ var fsm = new machina.Fsm({
 
     initialState: "sleeping",
 
+    myInterface: null,
     process: null,
     file: null,
     watcher: null,
@@ -151,8 +152,9 @@ var fsm = new machina.Fsm({
 
             wakeUp: function(){
                 var self = this;
+                this.myInterface = 'wlan0';
 
-                enterMonitorMode()
+                enterMonitorMode(this.myInterface)
                 .then(function(){
                     console.log('OK all good !');
                     self.transition('monitoring');
@@ -184,9 +186,10 @@ var fsm = new machina.Fsm({
             tryToSleep: function(){
                 var self = this;
 
-                exitMonitorMode()
+                exitMonitorMode(self.myInterface)
                 .then(function(){
                     console.log('Monitor mode deactivated');
+                    self.myInterface = null;
                     self.transition('sleeping');
                 })
                 .catch(function(err){
@@ -194,11 +197,11 @@ var fsm = new machina.Fsm({
                     console.log('Couldn\'t exit Monitor mode, still monitoring');
                 });
             },
-
-            sleep: "sleeping",
             
             record: function(options){
                 var self = this;
+
+                options.interface = this.myInterface;
 
                 startRecording(options)
                 .then(function(results){
@@ -292,9 +295,8 @@ var fsm = new machina.Fsm({
         var options = {
             '--output-format': 'csv',
             '--berlin': 300,
-            '--write-interval': 10,
-            '--write': './data/',
-            'interface': 'wlan0mon'
+            '--write-interval': 300,
+            '--write': './data/'
         };
 
         this.handle('record', options);

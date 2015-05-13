@@ -9,67 +9,86 @@ var makeMap = require('./utils.js').makeMap;
 
 var OUTPUT_FILE = 'data/output.csv';
 
+var shouldProcessFile = true;
+
 function writeCSVOutput(deviceMap){
-    
-    // get now moment ...
-    var now = new Date();
-    var now = moment.tz(now, 'GMT');
-    now.tz('Europe/Paris').format();
 
-    // ... return to 5 min before ...
-    var before = now.clone();
-    before.subtract(6, 'm'); // skipping current minute by taking 5 minutes from 6 minutes ago
-    before.startOf('minute');
+    return new Promise(function(resolve, reject){
+        // get now moment ...
+        var now = new Date();
+        var now = moment.tz(now, 'GMT');
+        now.tz('Europe/Paris').format();
 
-    // ... and take all 5 minutes from there
-    var minutes = [0, 1, 2, 3];
-    var dates = [before.format()];
+        // ... return to 5 min before ...
+        var before = now.clone();
+        before.subtract(6, 'm'); // skipping current minute by taking 5 minutes from 6 minutes ago
+        before.startOf('minute');
 
-    minutes.forEach(function(minute){
-        dates.push(before.add(1, 'm').format());
-    });
+        // ... and take all 5 minutes from there
+        var minutes = [0, 1, 2, 3];
+        var dates = [before.format()];
 
-    // initialize map
-    var deviceNumberMap = new Map();
-    dates.forEach(function(date){
-        deviceNumberMap.set(date, 0);
-    })
+        minutes.forEach(function(minute){
+            dates.push(before.add(1, 'm').format());
+        });
 
-    // assign device presence to dates
-    deviceMap.forEach(function(device){
-
-        var start = device["First time seen"];
-        var end = device["Last time seen"];
-
+        // initialize maps
+        var deviceLevelMap = new Map();
         dates.forEach(function(date){
-            if (start <= date && date < end)
-                deviceNumberMap.set(date, deviceNumberMap.get(date) + 1);
+            deviceLevelMap.set(date, []);
         });
-    });
 
-    // deviceNumberMap.forEach(function(nb, date){
-    //     console.log('nb of devices', date, nb);
-    // })
+        // assign a power level list to each date
+        dates.forEach(function(date){
 
-    var outputList = [];
-    // deviceNumberMap back to list before CSV write: 5... 4... 3... 2... 1...
-    deviceNumberMap.forEach(function(nb, date){
-        outputList.push({
-            date: date,
-            deviceNb: nb
+            deviceMap.forEach(function(device){
+
+                var start = device["First time seen"];
+                var end = device["Last time seen"];
+                var power = device["Power"];
+
+                if (start <= date && date < end){
+                    var deviceLevels = deviceLevelMap.get(date);
+                    deviceLevels.push(power);
+                    deviceLevelMap.set(date, deviceLevels);
+                }
+            });
         });
+
+        // deviceLevelMap.forEach(function(nb, date){
+        //     console.log('nb of devices', date, nb);
+        // })
+
+        var outputList = [];
+        // deviceLevelMap back to list before CSV write
+        deviceLevelMap.forEach(function(deviceLevels, date){
+            outputList.push({
+                date: date,
+                deviceLevels: deviceLevels,
+                nb: deviceLevels.length
+            });
+        });
+
+        console.log('output', outputList);
+
+        var csvStream = csvW.format({headers: false}),
+            writableStream = fs.createWriteStream(OUTPUT_FILE);
+
+        writableStream.on("finish", function(){
+            console.log('Updated output.csv');
+            resolve();
+        });
+
+        csvStream.pipe(writableStream);
+
+        outputList.forEach(function(input){
+            csvStream.write(input);
+        });
+
+        csvStream.end();
     });
-
-    var csvStream = csvW.format({headers: false}),
-        writableStream = fs.createWriteStream(OUTPUT_FILE);
-     
-    csvStream.pipe(writableStream);
-
-    outputList.forEach(function(input){
-        csvStream.write(input);
-    });
-
-    csvStream.end();
+    
+    
 }
 
 function formatOutput(devices){
@@ -112,36 +131,54 @@ function formatOutput(devices){
 }
 
 function readCSVInput(file){
-    var process = false;
 
-    var devices = [];
+    return new Promise(function(resolve, reject){
+        var shouldProcessLine = false;
 
-    fs.createReadStream(file)
-    .pipe(split())
-    .pipe(through(function(line){
-        // Only consider second part of the original CSV file, the one that starts with 'Station MAC'
-        if (line.match(/^Station/) || process === true){
-            if (line.match(/^$/))
-                process = false;
-            else {
-                this.queue(line + '\n');
-                process = true;
+        var devices = [];
+
+        fs.createReadStream(file)
+        .pipe(split())
+        .pipe(through(function(line){
+            // Only consider second part of the original CSV file, the one that starts with 'Station MAC'
+            if (line.match(/^Station/) || shouldProcessLine === true){
+                if (line.match(/^$/))
+                    shouldProcessLine = false;
+                else {
+                    this.queue(line + '\n');
+                    shouldProcessLine = true;
+                }
             }
-        }
-    }))
-    .pipe(csvR())
-    .on('data', function(data){
-        devices.push(data);
-    })
-    .on('end', function(data){
-        var deviceMap = formatOutput(devices);
-        writeCSVOutput(deviceMap);
-    });    
+        }))
+        .pipe(csvR())
+        .on('data', function(data){
+            devices.push(data);
+        })
+        .on('end', function(data){
+            var deviceMap = formatOutput(devices);
+            writeCSVOutput(deviceMap)
+            .then(function(){
+                resolve();
+            });
+        }); 
+    });
+       
 }
 
 module.exports = function(file){
-    console.log('Processing file... ', new Date());
-    setTimeout(function(){ // smoothing timings
-        readCSVInput(file);
-    }, 500);   
+    
+    // we process the file only if the previous process has finished. This is to avoid overwatching
+    if (shouldProcessFile){
+        shouldProcessFile = false;
+
+        console.log('Processing file... ', new Date());
+
+        setTimeout(function(){ // smoothing timings
+            readCSVInput(file)
+            .then(function(){
+                shouldProcessFile = true;
+            });
+        }, 500);
+    }
+     
 };

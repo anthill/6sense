@@ -3,24 +3,20 @@
 var csv = require('fast-csv');
 var split = require('split');
 var fs = require('fs');
-var watch = require('node-watch');
 
-var INPUT_FILE = './output.csv';
-var OUTPUT_FILE = './history.csv';
+var INPUT_FILE = '../data/output.csv';
+var OUTPUT_FILE = '../data/history.csv';
 
+
+var shouldProcessFile = true;
 
 function readCSVInput(file){
-
-    var process = false;
-
-    var latestDevices = [];
 
     console.log('start');
 
     fs.createReadStream(file)
-    .pipe(split())
+    // .pipe(split())
     .on('data', function(data){
-
         if (data.length !== 0){
             fs.appendFile(OUTPUT_FILE, data + '\n', function (err) {
                 if (err) throw err;
@@ -29,16 +25,24 @@ function readCSVInput(file){
         }
         
     })
+    .on('error', function(err){
+        console.log('ERROR', err.stack);
+    })
     .on('end', function(data){
         console.log('CSV read');
+        shouldProcessFile = true;
     });    
 }
 
-// readCSVInput(INPUT_FILE);
+setInterval(function(){
+    readCSVInput(INPUT_FILE);
+}, 300000);
 
-watch(INPUT_FILE, function(file){
-    readCSVInput(file);
-});
+
+// fs.watch(INPUT_FILE, function(file){
+//     console.log('hey');
+//     readCSVInput(file);
+// });
 
 // module.exports = function(){
 //     watch(INPUT_FILE, function(file){
