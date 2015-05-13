@@ -295,7 +295,7 @@ var fsm = new machina.Fsm({
         var options = {
             '--output-format': 'csv',
             '--berlin': 300,
-            '--write-interval': 10,
+            '--write-interval': 300,
             '--write': './data/'
         };
 
