@@ -1,0 +1,8 @@
+message AffluenceSensorMeasurement {
+  required uint32 date = 1;
+  required bytes signal_strengths = 2;
+}
+
+message AffluenceSensorMeasurements {
+  repeated AffluenceSensorMeasurement measurements = 1;
+}
