@@ -51,5 +51,21 @@ zip_based_bufferP.then(function(zip_based_buffer){
 })
 
 
+var zlib = require('zlib');
+
+var protobuf_and_zip_based_bufferP = new Promise(function(resolve, reject){
+    zlib.deflate(protobuf_based_buffer, function(err, buffer){
+        if(err) reject(err); else resolve(buffer);
+    });
+});
+
+protobuf_and_zip_based_bufferP.then(function(bothBuf){
+    console.log('bothBuf', bothBuf.length);
+})
+
+    
+    
+
+
 
 

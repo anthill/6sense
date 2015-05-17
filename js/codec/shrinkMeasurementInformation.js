@@ -22,6 +22,6 @@ module.exports = function shrinkMeasurementInformation(measurement){
     
     return {
         date: recentTimestampMin,
-        signal_strengths: new Buffer(measurement.signal_strengths.map(toByte))
+        signal_strengths: measurement.signal_strengths.map(toByte)
     };
 };
