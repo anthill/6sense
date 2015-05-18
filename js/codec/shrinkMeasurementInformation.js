@@ -22,6 +22,8 @@ module.exports = function shrinkMeasurementInformation(measurement){
     
     return {
         date: recentTimestampMin,
-        signal_strengths: measurement.signal_strengths.map(toByte)
+        signal_strengths: measurement.signal_strengths.map(toByte).sort(function(a, b){
+            return a < b ? -1 : 1;
+        })
     };
 };

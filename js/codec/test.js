@@ -2,9 +2,12 @@
 
 require('es6-shim');
 
+var zlib = require('zlib');
+
 var shrinkMeasurementInformation = require('./shrinkMeasurementInformation');
 
 var encodeProto = require('./encodeMeasurement-protobuf');
+var encodeProtoDelta = require('./encodeMeasurement-delta-protobuf');
 var encodeZip = require('./encodeMeasurement-zip');
 
 var measurements = [
@@ -42,16 +45,18 @@ var shrinkedMessages = measurements.map(shrinkMeasurementInformation);
 console.log('ref JSON', JSON.stringify(shrinkedMessages).length);
 
 var protobuf_based_buffer = encodeProto(shrinkedMessages);
+var delta_protobuf_based_buffer = encodeProtoDelta(shrinkedMessages);
 var zip_based_bufferP = encodeZip(shrinkedMessages);
 
 zip_based_bufferP.then(function(zip_based_buffer){
-    console.log('pbuf VS zip', protobuf_based_buffer.length, zip_based_buffer.length);
-    console.log(protobuf_based_buffer);
-    console.log(zip_based_buffer);
+    console.log('naive-protobuf', protobuf_based_buffer.length);
+    console.log('delta_protobuf', delta_protobuf_based_buffer.length);
+    console.log('zip', zip_based_buffer.length);
+    //console.log(protobuf_based_buffer);
+    //console.log(zip_based_buffer);
 })
 
 
-var zlib = require('zlib');
 
 var protobuf_and_zip_based_bufferP = new Promise(function(resolve, reject){
     zlib.deflate(protobuf_based_buffer, function(err, buffer){
@@ -60,11 +65,21 @@ var protobuf_and_zip_based_bufferP = new Promise(function(resolve, reject){
 });
 
 protobuf_and_zip_based_bufferP.then(function(bothBuf){
-    console.log('bothBuf', bothBuf.length);
-})
+    console.log('naive-protobuf + zip', bothBuf.length);
+});
 
     
     
+
+var delta_protobuf_and_zip_based_bufferP = new Promise(function(resolve, reject){
+    zlib.deflate(delta_protobuf_based_buffer, function(err, buffer){
+        if(err) reject(err); else resolve(buffer);
+    });
+});
+
+delta_protobuf_and_zip_based_bufferP.then(function(bothBuf){
+    console.log('delta-protobuf + zip', bothBuf.length);
+});
 
 
 
