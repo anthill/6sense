@@ -4,7 +4,7 @@
   "description": "Counting wifi searching devices",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "mocha test/*",
     "prepare": "sh shell/preinstall.sh",
     "monitor": "sh shell/runMonitoring.sh"
   },
@@ -21,5 +21,10 @@
     "protocol-buffers": "^3.0.0",
     "split": "^0.3.3",
     "through": "^2.3.7"
+  },
+  "devDependencies": {
+    "chai": "^2.3.0",
+    "chai-as-promised": "^5.0.0",
+    "mocha": "^2.2.5"
   }
 }
