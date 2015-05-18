@@ -1,9 +1,11 @@
 "use strict";
 
-var moment = require('moment')
-var MIN_DATE_UNIX_TIMESTAMP = moment("2015-05-15").unix();
+var moment = require('moment');
 
-var MIN_SIGNAL_STRENGTH = -110;
+var MIN_DATE_UNIX_TIMESTAMP = require('./MIN_DATE_UNIX_TIMESTAMP');
+
+
+var MIN_SIGNAL_STRENGTH = require('./MIN_SIGNAL_STRENGTH');
 var MAX_SIGNAL_STRENGTH = MIN_SIGNAL_STRENGTH + 255;
 
 function toByte(v){

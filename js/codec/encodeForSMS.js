@@ -1,7 +1,5 @@
 "use strict";
 
-
-
 var encodeProtoDelta = require('./encodeMeasurement-delta-protobuf');
 var shrinkMeasurementInformation = require('./shrinkMeasurementInformation');
 
