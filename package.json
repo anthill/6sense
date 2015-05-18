@@ -14,6 +14,7 @@
     "csv-parser": "^1.5.2",
     "es6-shim": "^0.31.0",
     "fast-csv": "^0.6.0",
+    "hilink": "0.0.1",
     "machina": "^1.0.0",
     "moment": "^2.10.3",
     "moment-timezone": "^0.3.1",
