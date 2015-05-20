@@ -6,7 +6,8 @@ var machina = require('machina');
 var spawn = require('child_process').spawn;
 var fork = require('child_process').fork;
 
-var deviceWatch = require('./deviceWatch.js');
+var parser = require('./parseOutput.js').parser;
+var emitter = require('./parseOutput.js').emitter;
 
 var QUERY_TIMEOUT = 10*1000*2;
 
@@ -19,9 +20,8 @@ function enterMonitorMode(myInterface){
 
         // on success, resolve Promise
         myProcess.stdout.on("data", function(chunkBuffer){
-            // check chunk buffer for final line outoput and then enter
+            // check chunk buffer for final line output and then enter
             var message = chunkBuffer.toString();
-            // console.log("stdout => " + message.trim());
             if (message.match(/monitor mode vif enabled/))
                 resolve(myProcess.pid);
         });
@@ -225,13 +225,26 @@ var fsm = new machina.Fsm({
             _onEnter: function(results){
                 var self = this;
                 console.log('************** ' + this.state + ' **************');
-                console.log('Watching ' + this.file);
-                setTimeout(function(){ // smoothing timings
-                    self.watcher = fs.watch(self.file, function(){
-                        deviceWatch(self.file);
-                    });   
-                }, 1000);
-                             
+                console.log('Checking ' + this.file);
+
+                if (this.file){
+                    console.log('Watching ' + this.file);
+
+                    emitter.on('results', function(results){
+                        self.emit('results', results);
+                    });
+
+                    setTimeout(function(){ // smoothing timings
+                        self.watcher = fs.watch(self.file, function(){
+                            parser(self.file);                
+                        });   
+                    }, 1000);
+                }
+                else{
+                    console.log('Couldn\'t find the file to be watched');
+                    self.transition('monitoring'); 
+                }
+                         
             },
             
             tryToSleep: function(){
@@ -257,6 +270,8 @@ var fsm = new machina.Fsm({
             
             _onExit: function(){
                 var self = this;
+
+                emitter.removeAllListeners('results');
 
                 setTimeout(function(){ // smoothing timings
                     spawn('rm', ['-fr', self.file]);
@@ -294,8 +309,8 @@ var fsm = new machina.Fsm({
 
         var options = {
             '--output-format': 'csv',
-            '--berlin': 300,
-            '--write-interval': 300,
+            '--berlin': 600,
+            '--write-interval': 10,
             '--write': './data/'
         };
 
