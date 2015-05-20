@@ -6,7 +6,8 @@ var machina = require('machina');
 var spawn = require('child_process').spawn;
 var fork = require('child_process').fork;
 
-var deviceWatch = require('./deviceWatch.js');
+var parser = require('./parseOutput.js').parser;
+var emitter = require('./parseOutput.js').emitter;
 
 var QUERY_TIMEOUT = 10*1000*2;
 
@@ -228,9 +229,14 @@ var fsm = new machina.Fsm({
 
                 if (this.file){
                     console.log('Watching ' + this.file);
+
+                    emitter.on('results', function(results){
+                        self.emit('results', results);
+                    });
+
                     setTimeout(function(){ // smoothing timings
                         self.watcher = fs.watch(self.file, function(){
-                            deviceWatch(self.file);
+                            parser(self.file);                
                         });   
                     }, 1000);
                 }
@@ -264,6 +270,8 @@ var fsm = new machina.Fsm({
             
             _onExit: function(){
                 var self = this;
+
+                emitter.removeAllListeners('results');
 
                 setTimeout(function(){ // smoothing timings
                     spawn('rm', ['-fr', self.file]);
@@ -302,7 +310,7 @@ var fsm = new machina.Fsm({
         var options = {
             '--output-format': 'csv',
             '--berlin': 600,
-            '--write-interval': 300,
+            '--write-interval': 10,
             '--write': './data/'
         };
 

@@ -1,13 +1,14 @@
 // maybe we could find a single CSV package, but will do for now
+var EventEmitter = require("events").EventEmitter;
 var csvR = require('csv-parser');
-var csvW = require('fast-csv');
+// var csvW = require('fast-csv');
 var split = require('split');
 var through = require('through');
 var moment = require('moment-timezone');
 
 var makeMap = require('./utils.js').makeMap;
 
-var OUTPUT_FILE = 'data/output.csv';
+// var OUTPUT_FILE = 'data/output.csv';
 
 var shouldProcessFile = true;
 
@@ -71,28 +72,28 @@ function sortResults(deviceMap){
     return outputList;
 }
 
-function writeCSVOutput(outputList){
+// function writeCSVOutput(outputList){
 
-    return new Promise(function(resolve, reject){
+//     return new Promise(function(resolve, reject){
 
-        var csvStream = csvW.format({headers: false}),
-        writableStream = fs.createWriteStream(OUTPUT_FILE);
+//         var csvStream = csvW.format({headers: false}),
+//         writableStream = fs.createWriteStream(OUTPUT_FILE);
 
-        writableStream.on("finish", function(){
-            console.log('Updated output.csv');
-            resolve();
-        });
+//         writableStream.on("finish", function(){
+//             console.log('Updated output.csv');
+//             resolve();
+//         });
 
-        csvStream.pipe(writableStream);
+//         csvStream.pipe(writableStream);
 
-        outputList.forEach(function(input){
-            csvStream.write(input);
-        });
+//         outputList.forEach(function(input){
+//             csvStream.write(input);
+//         });
 
-        csvStream.end();
+//         csvStream.end();
 
-    });
-}
+//     });
+// }
 
 function formatOutput(devices){
 
@@ -164,30 +165,36 @@ function readCSVInput(file){
        
 }
 
-module.exports = function(file){
+var ee = new EventEmitter();
+
+module.exports = {
+    emitter: ee,
+
+    parser: function(file){
     
-    // we process the file only if the previous process has finished. This is to avoid overwatching
-    if (shouldProcessFile){
-        shouldProcessFile = false;
+        // we process the file only if the previous process has finished. This is to avoid overwatching
+        if (shouldProcessFile){
+            shouldProcessFile = false;
 
-        console.log('Processing file... ', new Date());
+            console.log('Processing file... ', new Date());
 
-        setTimeout(function(){ // smoothing timings
-            readCSVInput(file)
-            .then(function(devices){
-                var deviceMap = formatOutput(devices);
-                var results = sortResults(deviceMap);
-                // 1°) if you want to write a CSV output
-                writeCSVOutput(results)
-                .then(function(){
+            setTimeout(function(){ // smoothing timings
+                readCSVInput(file)
+                .then(function(devices){
+                    var deviceMap = formatOutput(devices);
+                    var results = sortResults(deviceMap);
+                    // 1°) if you want to write a CSV output
+                    // writeCSVOutput(results)
+                    // .then(function(){
+                    //     shouldProcessFile = true;
+                    // });
+
+                    // 2°) if you want to emit an event
+                    ee.emit('results', results);
                     shouldProcessFile = true;
                 });
-
-                // 2°) if you want to emit an event
-                // emit event 'data'
-                // shouldProcessFile = true;
-            });
-        }, 500);
+            }, 500);
+        }
     }
      
 };
