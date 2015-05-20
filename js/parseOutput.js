@@ -64,8 +64,7 @@ function sortResults(deviceMap){
     deviceLevelMap.forEach(function(deviceLevels, date){
         outputList.push({
             date: date,
-            deviceLevels: deviceLevels,
-            nb: deviceLevels.length
+            signal_strengths: deviceLevels
         });
     });
 
