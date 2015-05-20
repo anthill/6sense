@@ -4,13 +4,13 @@ var EventEmitter = require("events").EventEmitter;
 
 var encodeForSMS = require('./js/codec/encodeForSMS.js');
 
-var fsm = require('./finiteStateMachine.js');
+var sense = require('./index.js');
 
 var emitter = new EventEmitter();
 
-fsm.record();
+sense.record();
 
-fsm.on('results', function(results){
+sense.on('results', function(results){
 	console.log('ready to send SMS');
 	console.log('results', results);
 
@@ -18,4 +18,4 @@ fsm.on('results', function(results){
 
 });
 
-module.exports = fsm;
+module.exports = sense;

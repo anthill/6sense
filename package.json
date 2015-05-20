@@ -2,7 +2,7 @@
   "name": "6sense",
   "version": "0.0.1",
   "description": "Counting wifi searching devices",
-  "main": "index.js",
+  "main": "./js/index.js",
   "scripts": {
     "test": "mocha test/*",
     "prepare": "sh shell/preinstall.sh",
