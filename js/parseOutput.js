@@ -25,7 +25,7 @@ function sortResults(deviceMap){
     before.startOf('minute');
 
     // ... and take all 5 minutes from there
-    var minutes = [0, 1, 2, 3];
+    var minutes = [0];
     var dates = [before.format()];
 
     minutes.forEach(function(minute){
