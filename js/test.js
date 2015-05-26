@@ -1,21 +1,11 @@
 'use strict';
 
-var EventEmitter = require("events").EventEmitter;
-
-var encodeForSMS = require('./js/codec/encodeForSMS.js');
-
 var sense = require('./index.js');
 
-var emitter = new EventEmitter();
+sense.record(60);
 
-sense.record();
-
-sense.on('results', function(results){
-	console.log('ready to send SMS');
-	console.log('results', results);
-
-	// var sms = encodeForSMS(results);
-
+sense.on('processed', function(result){
+	console.log('date: ', result.date, ', nb: ', result.signal_strengths.length);
 });
 
 module.exports = sense;

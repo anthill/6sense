@@ -142,6 +142,7 @@ var fsm = new machina.Fsm({
     process: null,
     file: null,
     watcher: null,
+    interval: null,
 
     states: {
         "sleeping": {
@@ -203,6 +204,8 @@ var fsm = new machina.Fsm({
 
                 options.interface = this.myInterface;
 
+                this.interval = options['--write-interval'];
+
                 startRecording(options)
                 .then(function(results){
                     self.file = results.file;
@@ -222,21 +225,22 @@ var fsm = new machina.Fsm({
 
         "recording": {
             
-            _onEnter: function(results){
+            _onEnter: function(interval){
                 var self = this;
                 console.log('************** ' + this.state + ' **************');
-                console.log('Checking ' + this.file);
+                console.log('Checking ',  this.file);
+                console.log('interval ',  this.interval);
 
                 if (this.file){
                     console.log('Watching ' + this.file);
 
-                    emitter.on('results', function(results){
-                        self.emit('results', results);
+                    emitter.on('processed', function(results){
+                        self.emit('processed', results);
                     });
 
                     setTimeout(function(){ // smoothing timings
                         self.watcher = fs.watch(self.file, function(){
-                            parser(self.file);                
+                            parser(self.file, self.interval);                
                         });   
                     }, 1000);
                 }
@@ -278,6 +282,7 @@ var fsm = new machina.Fsm({
                     this.file = null;
                     this.processes = null;
                     this.watcher = null;
+                    this.interval = null;
                 }, 500);
                 console.log('Exiting recording state');
             }
@@ -298,19 +303,17 @@ var fsm = new machina.Fsm({
 
         var options = {
             '--output-format': format,
-            '--berlin': refreshTime,
             '--write-interval': refreshTime,
             '--write': path,
             'interface': myInterface
         };
     */
 
-    record: function(){
+    record: function(interval){
 
         var options = {
             '--output-format': 'csv',
-            '--berlin': 600,
-            '--write-interval': 10,
+            '--write-interval': interval,
             '--write': './data/'
         };
 
