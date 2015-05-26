@@ -12,5 +12,15 @@ module.exports = {
         }
 
         return myMap;
+    },
+
+    createOrderedList: function(nb){
+    	var list = [];
+
+    	for (var i = 0; i < nb; i++){
+    		list.push(i);
+    	}
+
+    	return list;
     }
 };

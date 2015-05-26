@@ -15,15 +15,15 @@ sudo node
 ```
 Then, in node console, start a finite state machine:
 ```
-var fsm = require('./js/finiteStateMachine.js');
+var my6sense = require('./js/index.js');
 ```
 
 API is:
 ```
-fsm.wakeUp()  // from 'sleeping' to 'monitoring'
-fsm.sleep();  // from 'monitoring' or 'recording' back to 'sleeping'
-fsm.record(); // from 'sleeping' or 'monitoring' to 'recording'
-fsm.pause();  // from 'recording' to 'monitoring'
+my6sense.wakeUp()  // from 'sleeping' to 'monitoring'
+my6sense.sleep();  // from 'monitoring' or 'recording' back to 'sleeping'
+my6sense.record(); // from 'sleeping' or 'monitoring' to 'recording'
+my6sense.pause();  // from 'recording' to 'monitoring'
 ```
 
 
