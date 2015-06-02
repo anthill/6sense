@@ -277,6 +277,8 @@ var fsm = new machina.Fsm({
 
                 emitter.removeAllListeners('results');
 
+                fs.unlink("./data/report-01.csv");
+
                 setTimeout(function(){ // smoothing timings
                     spawn('rm', ['-fr', self.file]);
                     this.file = null;

@@ -3,6 +3,7 @@
 var csv = require('csv-parser');
 var split = require('split');
 var through = require('through');
+var fs = require('fs');
 
 function readCSVInput(file){
 

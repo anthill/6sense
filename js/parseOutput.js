@@ -37,6 +37,9 @@ module.exports = {
                     // 2°) if you want to emit an event
                     ee.emit('processed', result);
                     shouldProcessFile = true;
+                })
+                .catch(function(err){
+                    console.log('err', err, err.stack);
                 });
             }, 500);
         }
