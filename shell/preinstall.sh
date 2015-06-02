@@ -9,5 +9,3 @@ rm aircrack-ng-1.2-rc2.tar.gz
 rm -rf aircrack-ng-1.2-rc2
 
 sudo airodump-ng-oui-update
-
-mkdir data

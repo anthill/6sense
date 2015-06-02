@@ -15,12 +15,12 @@ sudo node
 ```
 Then, in node console, start a finite state machine:
 ```
-var fsm = require('./js/finiteStateMachine.js');
+var fsm = require('./js/index.js');
 ```
 
 API is:
 ```
-fsm.wakeUp()  // from 'sleeping' to 'monitoring'
+fsm.wakeUp();  // from 'sleeping' to 'monitoring'
 fsm.sleep();  // from 'monitoring' or 'recording' back to 'sleeping'
 fsm.record(); // from 'sleeping' or 'monitoring' to 'recording'
 fsm.pause();  // from 'recording' to 'monitoring'
