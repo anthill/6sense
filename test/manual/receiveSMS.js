@@ -12,6 +12,6 @@ hilink.listInbox(function( response ){
     result.response.Messages.forEach(function(msg){
         decodeFromSMS(msg.Content).then(function(clearMessage){
             console.log(clearMessage);
-        })
-    })
+        });
+    });
 });
