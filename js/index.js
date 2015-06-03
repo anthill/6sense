@@ -228,6 +228,9 @@ var fsm = new machina.Fsm({
             _onEnter: function(interval){
                 var self = this;
                 console.log('************** ' + this.state + ' **************');
+                try {
+                    fs.unlink("./data/report-01.csv");
+                }
                 console.log('Checking ',  this.file);
                 console.log('interval ',  this.interval);
 
