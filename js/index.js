@@ -229,8 +229,8 @@ var fsm = new machina.Fsm({
                 var self = this;
                 console.log('************** ' + this.state + ' **************');
                 try {
-                    fs.unlink("./data/report-01.csv");
-                }
+                    fs.unlinkSync("./data/report-01.csv");
+                } catch(e) {}
                 console.log('Checking ',  this.file);
                 console.log('interval ',  this.interval);
 
