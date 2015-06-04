@@ -132,17 +132,19 @@ function stopRecording(process){
 
 var fsm = new machina.Fsm({
 
-    initialize: function(){
-        // None for now...
-    },
-
     initialState: "sleeping",
 
-    myInterface: null,
+    myInterface: 'wlan0',
     process: null,
     file: null,
     watcher: null,
     interval: null,
+
+    initialize: function(){
+        try{
+            spawn("airmon-ng", ["stop", this.myInterface + "mon"]);
+        } catch(err){};
+    },
 
     states: {
         "sleeping": {
@@ -153,7 +155,6 @@ var fsm = new machina.Fsm({
 
             wakeUp: function(){
                 var self = this;
-                this.myInterface = 'wlan0';
 
                 enterMonitorMode(this.myInterface)
                 .then(function(){
@@ -280,10 +281,10 @@ var fsm = new machina.Fsm({
 
                 emitter.removeAllListeners('results');
 
-                fs.unlink("./data/report-01.csv");
-
                 setTimeout(function(){ // smoothing timings
-                    spawn('rm', ['-fr', self.file]);
+                    try {
+                        fs.unlinkSync("./data/report-01.csv");
+                    } catch(err) {};
                     this.file = null;
                     this.processes = null;
                     this.watcher = null;
