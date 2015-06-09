@@ -4,7 +4,7 @@ require('es6-shim');
 
 var assert = assert = require('chai').assert;
 
-var deltaEncode = require('../js/codec/delta-encode');
+var deltaEncode = require('../src/codec/delta-encode');
 
 describe('delta-encode', function(){
     

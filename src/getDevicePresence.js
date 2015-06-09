@@ -4,8 +4,8 @@ var csv = require('fast-csv');
 var split = require('split');
 var fs = require('fs');
 
-var INPUT_FILE = '../data/output.csv';
-var OUTPUT_FILE = '../data/history.csv';
+var INPUT_FILE = '../output.csv';
+var OUTPUT_FILE = '../history.csv';
 
 
 var shouldProcessFile = true;

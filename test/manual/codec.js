@@ -1,7 +1,7 @@
 "use strict";
 
-var encodeForSMS = require('../../js/codec/encodeForSMS');
-var decodeForSMS = require('../../js/codec/decodeFromSMS');
+var encodeForSMS = require('../../src/codec/encodeForSMS');
+var decodeForSMS = require('../../src/codec/decodeFromSMS');
 
 var measurements = [
     {

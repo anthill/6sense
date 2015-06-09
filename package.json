@@ -1,12 +1,10 @@
 {
   "name": "6sense",
-  "version": "0.0.7",
+  "version": "0.0.8",
   "description": "Counting wifi searching devices",
-  "main": "./js/index.js",
+  "main": "./src/index.js",
   "scripts": {
-    "test": "mocha test/*",
-    "prepare": "sh shell/preinstall.sh",
-    "monitor": "sh shell/runMonitoring.sh"
+    "test": "mocha test/*"
   },
   "author": "ants",
   "license": "MIT",
@@ -14,7 +12,6 @@
     "csv-parser": "^1.5.2",
     "es6-shim": "^0.31.0",
     "fast-csv": "^0.6.0",
-    "hilink": "0.0.1",
     "machina": "^1.0.0",
     "moment": "^2.10.3",
     "moment-timezone": "^0.3.1",

@@ -230,7 +230,7 @@ var fsm = new machina.Fsm({
                 var self = this;
                 console.log('************** ' + this.state + ' **************');
                 try {
-                    fs.unlinkSync("./data/report-01.csv");
+                    fs.unlinkSync("./report-01.csv");
                 } catch(e) {}
                 console.log('Checking ',  this.file);
                 console.log('interval ',  this.interval);
@@ -283,7 +283,7 @@ var fsm = new machina.Fsm({
 
                 setTimeout(function(){ // smoothing timings
                     try {
-                        fs.unlinkSync("./data/report-01.csv");
+                        fs.unlinkSync("./report-01.csv");
                     } catch(err) {};
                     this.file = null;
                     this.processes = null;
@@ -320,7 +320,7 @@ var fsm = new machina.Fsm({
         var options = {
             '--output-format': 'csv',
             '--write-interval': interval,
-            '--write': './data/'
+            '--write': './'
         };
 
         this.handle('record', options);

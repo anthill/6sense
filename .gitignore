@@ -1,10 +1,7 @@
 node_modules/
-ES-mess/
+data
 
 .DS_Store
 *.log
-app.js
-.app.js
 npm-debug.log
-*.pyc
 sftp-config*

@@ -2,7 +2,7 @@
 
 require('es6-shim');
 
-var decodeFromSMS = require("../../js/codec/decodeFromSMS.js")
+var decodeFromSMS = require("../../src/codec/decodeFromSMS.js")
 
 var hilink = require('hilink');
 

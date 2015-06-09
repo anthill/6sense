@@ -2,7 +2,7 @@
 
 require('es6-shim');
 
-var encodeForSMS = require("../../js/codec/encodeForSMS.js")
+var encodeForSMS = require("../../src/codec/encodeForSMS.js")
 
 var measurements = [
     {

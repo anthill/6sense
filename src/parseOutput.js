@@ -8,7 +8,7 @@ var readCSVInput = require('./readCSVInput.js');
 var formatDeviceOutput = require('./formatDeviceOutput.js');
 var writeCSVOutput = require('./writeCSVOutput.js');
 
-// var OUTPUT_FILE = 'data/output.csv';
+// var OUTPUT_FILE = 'output.csv';
 
 var shouldProcessFile = true;
 
