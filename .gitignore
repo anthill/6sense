@@ -5,3 +5,4 @@ data
 *.log
 npm-debug.log
 sftp-config*
+*.csv
