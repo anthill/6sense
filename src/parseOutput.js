@@ -35,7 +35,7 @@ module.exports = {
                     // });
 
                     // 2°) if you want to emit an event
-                    ee.emit('processed', result);
+                    ee.emit('parseProcessed', result);
                     shouldProcessFile = true;
                 })
                 .catch(function(err){

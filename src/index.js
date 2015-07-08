@@ -238,7 +238,7 @@ var fsm = new machina.Fsm({
                 if (this.file){
                     console.log('Watching ' + this.file);
 
-                    emitter.on('processed', function(results){
+                    emitter.on('parseProcessed', function(results){
                         self.emit('processed', results);
                     });
 
