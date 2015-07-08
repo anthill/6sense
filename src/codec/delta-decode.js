@@ -12,7 +12,6 @@ module.exports = function(buffer){
 	var arr = [];
 	var previousValue;
 
-	console.log('delta-decode', buffer);
 
 	Array.prototype.forEach.call(buffer, function(byte){
 		if(previousValue === undefined){
