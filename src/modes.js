@@ -12,94 +12,88 @@
 // to connect during the binDuration time elapsed since previous bin.
 
 var moment = require('moment-timezone');
-
-var makeMap = require('./utils.js').makeMap;
 var createList = require('./utils.js').createOrderedList;
 
 module.exports = {
 
-	instant: function(deviceMap, interval){
-		console.log('Processing with instant mode');
-	    // get now moment ...
-	    var now = new Date();
-	    var now = moment.tz(now, 'GMT');
-	    now.tz('Europe/Paris');
+    instant: function(deviceMap, interval){
+        console.log('Processing with instant mode');
+        // get now moment ...
+        var now = new Date();
+        now = moment.tz(now, 'GMT');
+        now.tz('Europe/Paris');
 
-	    // assign a power level list to each date
-	    var deviceLevels = [];
+        // assign a power level list to each date
+        var deviceLevels = [];
 
-	    deviceMap.forEach(function(device){
-	        // console.log('dif', now.format() - Date.parse(device["Last time seen"]));
+        deviceMap.forEach(function(device){
+            // console.log('dif', now.format() - Date.parse(device["Last time seen"]));
 
-	        if (now - Date.parse(device["Last time seen"]) < interval * 1000)
-	            deviceLevels.push(device.Power);
-	    });
+            if (now - Date.parse(device["Last time seen"]) < interval * 1000)
+                deviceLevels.push(device.Power);
+        });
 
-	    return {
-	        date: now.format(),
-	        signal_strengths: deviceLevels
-	    };
-	},
+        return {
+            date: now.format(),
+            signal_strengths: deviceLevels
+        };
+    },
 
-	histo: function(deviceMap, nbBins, binDuration){
-		// get now moment ...
-	    var now = new Date();
-	    var now = moment.tz(now, 'GMT');
-	    now.tz('Europe/Paris').format();
+    histo: function(deviceMap, nbBins, binDuration){
+        // get now moment ...
+        var now = new Date();
+        now = moment.tz(now, 'GMT');
+        now.tz('Europe/Paris').format();
 
-	    var delta = nbBins * binDuration;
+        var delta = nbBins * binDuration;
 
-	    // ... return to delta minutes before ...
-	    var before = now.clone();
-	    before.subtract(delta, 'm');
-	    before.startOf('minute');
+        // ... return to delta minutes before ...
+        var before = now.clone();
+        before.subtract(delta, 'm');
+        before.startOf('minute');
 
-	    // ... and take all bins from there
-	    var dates = [before.format()];
+        // ... and take all bins from there
+        var dates = [before.format()];
 
-	    if (nbBins > 1){
-	        var bins = createList(nbBins - 1);
-	        bins.forEach(function(bin){
-	            dates.push(before.add(binDuration, 'm').format());
-	        });
-	    }
+        if (nbBins > 1){
+            var bins = createList(nbBins - 1);
+            bins.forEach(function(){
+                dates.push(before.add(binDuration, 'm').format());
+            });
+        }
 
-	    // initialize maps
-	    var deviceLevelMap = new Map();
-	    dates.forEach(function(date){
-	        deviceLevelMap.set(date, []);
-	    });
+        // initialize maps
+        var deviceLevelMap = new Map();
+        dates.forEach(function(date){
+            deviceLevelMap.set(date, []);
+        });
 
-	    // assign a power level list to each date
-	    dates.forEach(function(date){
+        // assign a power level list to each date
+        dates.forEach(function(date){
 
-	        deviceMap.forEach(function(device){
+            deviceMap.forEach(function(device){
 
-	            var start = device["First time seen"];
-	            var end = device["Last time seen"];
-	            var power = device["Power"];
+                var start = device["First time seen"];
+                var end = device["Last time seen"];
+                var power = device["Power"];
 
-	            if (start <= date && date < end){
-	                var deviceLevels = deviceLevelMap.get(date);
-	                deviceLevels.push(power);
-	                deviceLevelMap.set(date, deviceLevels);
-	            }
-	        });
-	    });
+                if (start <= date && date < end){
+                    var deviceLevels = deviceLevelMap.get(date);
+                    deviceLevels.push(power);
+                    deviceLevelMap.set(date, deviceLevels);
+                }
+            });
+        });
 
-	    // deviceLevelMap.forEach(function(nb, date){
-	    //     console.log('nb of devices', date, nb);
-	    // })
+        var outputList = [];
+        // deviceLevelMap back to list before CSV write
+        deviceLevelMap.forEach(function(deviceLevels, date){
+            outputList.push({
+                date: date,
+                signal_strengths: deviceLevels
+            });
+        });
 
-	    var outputList = [];
-	    // deviceLevelMap back to list before CSV write
-	    deviceLevelMap.forEach(function(deviceLevels, date){
-	        outputList.push({
-	            date: date,
-	            signal_strengths: deviceLevels
-	        });
-	    });
-
-	    return outputList;
-	}
+        return outputList;
+    }
 };

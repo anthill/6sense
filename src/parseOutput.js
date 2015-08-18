@@ -6,9 +6,7 @@ var EventEmitter = require("events").EventEmitter;
 var instantMode = require('./modes.js').instant;
 var readCSVInput = require('./readCSVInput.js');
 var formatDeviceOutput = require('./formatDeviceOutput.js');
-var writeCSVOutput = require('./writeCSVOutput.js');
-
-// var OUTPUT_FILE = 'output.csv';
+// var writeCSVOutput = require('./writeCSVOutput.js');
 
 var shouldProcessFile = true;
 

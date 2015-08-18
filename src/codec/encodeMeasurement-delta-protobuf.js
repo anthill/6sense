@@ -1,12 +1,12 @@
 "use strict";
 
 var fs = require('fs');
-
+var path = require('path');
 var protobuf = require('protocol-buffers');
 
 var deltaEncode = require('./delta-encode');
 
-var messages = protobuf(fs.readFileSync(__dirname + '/delta-encoded-measurements.proto'));
+var messages = protobuf(fs.readFileSync(path.join(__dirname, '/delta-encoded-measurements.proto')));
 
 module.exports = function(measurements){
     return messages.AffluenceSensorMeasurements.encode({
