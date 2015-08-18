@@ -270,6 +270,7 @@ var fsm = new machina.Fsm({
                 var self = this;
 
                 console.log('pausing', this.process.pid);
+                emitter.removeAllListeners('parseProcessed'); // In order to send only one event 'processed'
                 stopRecording(this.process)
                 .then(function(){
                     console.log('Stopping the file watch');
