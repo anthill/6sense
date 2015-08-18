@@ -8,7 +8,7 @@
         "lint": "eslint ./",
         "test": "mocha test/*"
     },
-    "author": "ants",
+    "author": "ants <contact@ants.builders> (http://ants.builders)",
     "license": "MIT",
     "dependencies": {
         "csv-parser": "^1.5.2",
