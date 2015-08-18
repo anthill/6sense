@@ -6,21 +6,21 @@ module.exports = {
         var myMap = new Map();
 
         if (object.length !== 0){
-        	for (var field in object){
-	            myMap.set(object[field][key], object[field]);
-	        }
+            for (var field in object){
+                myMap.set(object[field][key], object[field]);
+            }
         }
 
         return myMap;
     },
 
     createOrderedList: function(nb){
-    	var list = [];
+        var list = [];
 
-    	for (var i = 0; i < nb; i++){
-    		list.push(i);
-    	}
+        for (var i = 0; i < nb; i++){
+            list.push(i);
+        }
 
-    	return list;
+        return list;
     }
 };

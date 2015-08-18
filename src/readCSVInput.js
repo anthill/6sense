@@ -26,10 +26,11 @@ function readCSVInput(file){
             }
         }))
         .pipe(csv())
+        .on('error', reject)
         .on('data', function(data){
             devices.push(data);
         })
-        .on('end', function(data){
+        .on('end', function(){
             resolve(devices);
         }); 
     });

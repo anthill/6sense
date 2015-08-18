@@ -4,7 +4,6 @@ require('es6-shim');
 var fs = require('fs');
 var machina = require('machina');
 var spawn = require('child_process').spawn;
-var fork = require('child_process').fork;
 
 var parser = require('./parseOutput.js').parser;
 var emitter = require('./parseOutput.js').emitter;
@@ -102,7 +101,7 @@ function startRecording(optObj){
         console.log("airodumpProcess: ", airodumpProcess.pid);
 
         // on error, resolve Promise => weird, but ok
-        airodumpProcess.stderr.on("data", function(chunkBuffer){
+        airodumpProcess.stderr.on("data", function(){
             resolve({
                 file: file,
                 airodumpProcess: airodumpProcess
@@ -123,6 +122,7 @@ function stopRecording(process){
     return new Promise(function(resolve, reject){
         console.log('killing process id', process.pid);
         process.kill();
+        process.on('error', reject);
         process.on('exit', function(code){
             console.log('Process killed');
             resolve(code);
@@ -143,7 +143,10 @@ var fsm = new machina.Fsm({
     initialize: function(){
         try{
             spawn("airmon-ng", ["stop", this.myInterface + "mon"]);
-        } catch(err){};
+        } catch(err){
+            console.log('err', err, err.stack);
+            console.log('Initialize: Couldn\'t spawn airmon-ng');
+        }
     },
 
     states: {
@@ -215,7 +218,7 @@ var fsm = new machina.Fsm({
                 })
                 .catch(function(err){
                     console.log('err', err, err.stack);
-                    console.log('Couldn\'t enter Recording mode, still monitoring')
+                    console.log('Couldn\'t enter Recording mode, still monitoring');
                 });
             },
             
@@ -226,12 +229,15 @@ var fsm = new machina.Fsm({
 
         "recording": {
             
-            _onEnter: function(interval){
+            _onEnter: function(){
                 var self = this;
                 console.log('************** ' + this.state + ' **************');
                 try {
                     fs.unlinkSync("./report-01.csv");
-                } catch(e) {}
+                } catch(err) {
+                    console.log('err', err, err.stack);
+                    console.log('Couldn\'t unlink report file');
+                }
                 console.log('Checking ',  this.file);
                 console.log('interval ',  this.interval);
 
@@ -278,14 +284,15 @@ var fsm = new machina.Fsm({
             },
             
             _onExit: function(){
-                var self = this;
-
                 emitter.removeAllListeners('results');
 
                 setTimeout(function(){ // smoothing timings
                     try {
                         fs.unlinkSync("./report-01.csv");
-                    } catch(err) {};
+                    } catch(err) {
+                        console.log('err', err, err.stack);
+                        console.log('Couldn\'t unlink report file');
+                    }
                     this.file = null;
                     this.processes = null;
                     this.watcher = null;

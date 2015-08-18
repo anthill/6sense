@@ -36,9 +36,9 @@ module.exports = function(buffer){
 				return;
 			}
 			else{
-				var v = previousValue + lowDelta;
-				arr.push(v);
-				previousValue = v;
+				var val = previousValue + lowDelta;
+				arr.push(val);
+				previousValue = val;
 			}
 		}
 
