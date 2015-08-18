@@ -1,6 +1,9 @@
 'use strict';
 
+var fs = require('fs');
 var csv = require('fast-csv');
+
+var OUTPUT_FILE = './output.csv';
 
 function writeCSVOutput(outputList){
 
@@ -13,6 +16,8 @@ function writeCSVOutput(outputList){
             console.log('Updated output.csv');
             resolve();
         });
+
+        writableStream.on("error", reject);
 
         csvStream.pipe(writableStream);
 
