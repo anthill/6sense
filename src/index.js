@@ -10,6 +10,8 @@ var emitter = require('./parseOutput.js').emitter;
 
 var QUERY_TIMEOUT = 10*1000*2;
 
+//
+
 function enterMonitorMode(myInterface){
     // this spawns the AIRMON-NG START process whose purpose is to set the wifi card in monitor mode
     // it is a one-shot process, that stops right after success
