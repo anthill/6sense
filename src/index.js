@@ -29,11 +29,13 @@ function enterMonitorMode(myInterface){
         myProcess.stderr.on("data", function(chunkBuffer){
             var message = chunkBuffer.toString();
             console.log("Error => " + message);
+            fsm.emit('monitorError', message)
             reject(new Error("Entering monitor mode => " + message));
         });
 
         // on timeout, reject Promise 
         setTimeout(function(){
+            fsm.emit('monitorError', 'timeout')
             reject(new Error("Entering monitor mode => Timeout"));
         }, QUERY_TIMEOUT);
     });
@@ -110,6 +112,7 @@ function startRecording(optObj){
 
         // on timeout, reject Promise
         setTimeout(function(){
+            fsm.emit('recordError', 'timeout')
             reject(new Error("airodump Error => Timeout"));
         }, QUERY_TIMEOUT);
     });
@@ -154,6 +157,12 @@ var fsm = new machina.Fsm({
             
             _onEnter: function() {
                 console.log('ZZZzzzZZZzzz... ', this.state, ' ...ZZZzzzZZZzzz');
+            },
+
+            changeInterface: function(newInterface) {
+                if (newInterface)
+                    this.myInterface = newInterface;
+                this.handle('initialize')
             },
 
             wakeUp: function(){
