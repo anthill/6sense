@@ -33,7 +33,10 @@ module.exports = {
 
             if (now - Date.parse(device["Last time seen"]) < interval * 1000) {
                 deviceLevels.push(device.Power);
-                deviceIDs.push((new Buffer(crypto.createHash('sha256').update(device["Station MAC"]).digest())).readUInt32LE(0));
+                deviceIDs.push((new Buffer(crypto.createHash('sha256')
+                                    .update(device["Station MAC"] + (new Date()).toISOString().slice(0, 10))
+                                    .digest()))
+                                    .readUInt32LE(0));
             }
 
         });

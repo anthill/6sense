@@ -13,7 +13,10 @@ var encodeProtoDelta = require('./encodeMeasurement-delta-protobuf');
 var encodeZip = require('./encodeMeasurement-zip');
 
 function hashID(id) {
-    return new Buffer(crypto.createHash('sha256').update(id).digest()).readUInt32LE(0)
+    return new Buffer(crypto.createHash('sha256')
+                .update(id + (new Date()).toISOString().slice(0, 10))
+                .digest())
+                .readUInt32LE(0)
 }
 
 var measurements = [
