@@ -3,12 +3,18 @@
 require('es6-shim');
 
 var zlib = require('zlib');
+var crypto = require('crypto')
+
 
 var shrinkMeasurementInformation = require('./shrinkMeasurementInformation');
 
 var encodeProto = require('./encodeMeasurement-protobuf');
 var encodeProtoDelta = require('./encodeMeasurement-delta-protobuf');
 var encodeZip = require('./encodeMeasurement-zip');
+
+function hashID(id) {
+    return new Buffer(crypto.createHash('sha256').update(id).digest()).readUInt32LE(0)
+}
 
 var measurements = [
     {
@@ -21,7 +27,7 @@ var measurements = [
                 "BA:5E:BA:11:00:20", "BA:5E:BA:11:00:21", "BA:5E:BA:11:00:22", "BA:5E:BA:11:00:23", "BA:5E:BA:11:00:24", 
                 "BA:5E:BA:11:00:25", "BA:5E:BA:11:00:26", "BA:5E:BA:11:00:27", "BA:5E:BA:11:00:28", "BA:5E:BA:11:00:29", 
                 "BA:5E:BA:11:00:31", "BA:5E:BA:11:00:32", "BA:5E:BA:11:00:33", "BA:5E:BA:11:00:34", "BA:5E:BA:11:00:35", 
-                "BA:5E:BA:11:00:36", "BA:5E:BA:11:00:37"]
+                "BA:5E:BA:11:00:36", "BA:5E:BA:11:00:37"].map(hashID)
     },
 
     {
@@ -34,7 +40,7 @@ var measurements = [
                 "BA:DF:00:DD:FF:20", "BA:DF:00:DD:FF:21", "BA:DF:00:DD:FF:22", "BA:DF:00:DD:FF:23", "BA:DF:00:DD:FF:24", 
                 "BA:DF:00:DD:FF:25", "BA:DF:00:DD:FF:26", "BA:DF:00:DD:FF:27", "BA:DF:00:DD:FF:28", "BA:DF:00:DD:FF:29", 
                 "BA:DF:00:DD:FF:31", "BA:DF:00:DD:FF:32", "BA:DF:00:DD:FF:33", "BA:DF:00:DD:FF:34", "BA:DF:00:DD:FF:35", 
-                "BA:DF:00:DD:FF:36", "BA:DF:00:DD:FF:37"]
+                "BA:DF:00:DD:FF:36", "BA:DF:00:DD:FF:37"].map(hashID)
     },
     {
         date: new Date('2015-05-15T14:40:00+02:00'),
