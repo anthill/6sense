@@ -15,6 +15,7 @@ module.exports = function unshrinkMeasurementInformation(measurement){
     
     return {
         date: unshinkedDate,
-        signal_strengths: measurement.signal_strengths.map(fromByte)
+        signal_strengths: measurement.signal_strengths.map(fromByte),
+        IDs: measurement.IDs
     };
 };

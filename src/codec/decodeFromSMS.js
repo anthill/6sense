@@ -27,8 +27,8 @@ module.exports = function(str){
     var buffer = new Buffer(str, 'base64');
 
     return (new Promise(function(resolve, reject){
-        zlib.inflate(buffer, function(err, buffer){
-            if(err) reject(err); else resolve(buffer);
+        zlib.inflate(buffer, function(err, zippedBuffer){
+            if(err) reject(err); else resolve(zippedBuffer);
         });
     }))
         .then(decodeProtoDelta)
