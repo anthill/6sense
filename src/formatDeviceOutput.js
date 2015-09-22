@@ -26,7 +26,7 @@ function formatDeviceOutput(devices){
                 newValue = parseInt(value.trim());
             else
                 newValue = value.trim();
-            
+
             newObject[newField] = newValue;
         }
 

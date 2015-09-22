@@ -13,7 +13,8 @@ module.exports = function(measurements){
         measurements: measurements.map(function(measurement){
             return {
                 date: measurement.date,
-                signal_strengths : deltaEncode(measurement.signal_strengths)
+                signal_strengths: deltaEncode(measurement.signal_strengths),
+                IDs: measurement.IDs
             }
         })
     });

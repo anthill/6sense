@@ -6,6 +6,7 @@ var shrinkMeasurementInformation = require('./shrinkMeasurementInformation');
 var zlib = require('zlib');
 
 module.exports = function encode(measurements){
+
     var shrinkedMessages = measurements.map(shrinkMeasurementInformation);
     var delta_protobuf_based_buffer = encodeProtoDelta(shrinkedMessages);
 
@@ -15,7 +16,3 @@ module.exports = function encode(measurements){
         });
     });
 };
-
-
-
-
