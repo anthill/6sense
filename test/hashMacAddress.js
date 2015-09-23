@@ -38,11 +38,11 @@ describe('hashMacAddress', function() {
         expect(hash2).to.not.equal(hash1);
     })
 
-    it('should not have collisions for 1000 hashes', function() {
+    it('should not have collisions for 1000 hashs', function() {
         var previousHash;
         var thisHash;
 
-        for (var i = 0; i < 1000; ++i) {
+        for (var i = 0; i <= 1000; ++i) {
             thisHash = hashMacAddress(generateRandomMac(), new Date().toISOString().slice(0, 10))
 
             expect(thisHash).to.not.equal(previousHash)
@@ -61,5 +61,17 @@ describe('hashMacAddress', function() {
             expect(thisHash).to.not.equal(previousHash);
             previousHash = thisHash;
         })
+    })
+
+    it ('should not return a hash that is a substring of the MAC address', function () {
+        var hash;
+        var macAddress;
+
+        for (var i = 0; i <= 1000; ++i) {
+            macAddress = generateRandomMac();
+            hash = hashMacAddress(macAddress, new Date().toISOString().slice(0, 10));
+
+            expect(macAddress.replace(/:/g, '').indexOf(hash.toString(16))).to.be.equal(-1)
+        }
     })
 });
