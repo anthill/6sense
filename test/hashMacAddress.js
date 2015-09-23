@@ -71,7 +71,7 @@ describe('hashMacAddress', function() {
             macAddress = generateRandomMac();
             hash = hashMacAddress(macAddress, new Date());
 
-            expect(macAddress.replace(/:/g, '').indexOf(hash.toString(16))).to.be.equal(-1)
+            expect(macAddress.replace(/:/g, '').indexOf(hash.toString(16).toUpperCase())).to.be.equal(-1)
         }
     })
 });
