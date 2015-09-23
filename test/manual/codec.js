@@ -1,16 +1,13 @@
 "use strict";
 
 require('es6-shim')
-var crypto = require('crypto')
 
 var encodeForSMS = require('../../src/codec/encodeForSMS');
 var decodeForSMS = require('../../src/codec/decodeFromSMS');
+var hashMacAddress = require('../../src/hashMacAddress')
 
 function hashID(id) {
-    return new Buffer(crypto.createHash('sha256')
-                        .update(id + (new Date()).toISOString().slice(0, 10))
-                        .digest())
-                        .readUInt32LE(0)
+    return hashMacAddress(id, (new Date()).toISOString().slice(0, 10));
 }
 
 var measurements = [

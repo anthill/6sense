@@ -13,7 +13,7 @@
 
 var moment = require('moment-timezone');
 var createList = require('./utils.js').createOrderedList;
-var crypto = require('crypto');
+var hashMacAddress = require('./hashMacAddress.js');
 
 module.exports = {
 
@@ -32,11 +32,8 @@ module.exports = {
         .map(function (device) {
             return {
                 signal_strength: device.Power,
-                ID: (new Buffer(crypto.createHash('sha256')
-                                .update(device["Station MAC"] + (new Date()).toISOString().slice(0, 10))
-                                .digest()))
-                    .readUInt32LE(0)
-                }
+                ID: hashMacAddress(device["Station MAC"], (new Date()).toISOString().slice(0, 10))
+            }
         });
         return {
             date: now.format(),
