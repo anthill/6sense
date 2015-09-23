@@ -3,17 +3,16 @@
 require('es6-shim');
 
 var zlib = require('zlib');
-var crypto = require('crypto')
-
 
 var shrinkMeasurementInformation = require('./shrinkMeasurementInformation');
 
 var encodeProto = require('./encodeMeasurement-protobuf');
 var encodeProtoDelta = require('./encodeMeasurement-delta-protobuf');
 var encodeZip = require('./encodeMeasurement-zip');
+var hashMacAddress = require('../hashMacAddress')
 
 function hashID(id) {
-    return new Buffer(crypto.createHash('sha256').update(id).digest()).readUInt32LE(0)
+    return hashMacAddress(id, new Date());
 }
 
 var measurements = [

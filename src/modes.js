@@ -13,7 +13,7 @@
 
 var moment = require('moment-timezone');
 var createList = require('./utils.js').createOrderedList;
-var crypto = require('crypto');
+var hashMacAddress = require('./hashMacAddress.js');
 
 module.exports = {
 
@@ -24,24 +24,22 @@ module.exports = {
         now = moment.tz(now, 'GMT');
         now.tz('Europe/Paris');
 
-        // assign a power level list to each date
-        var deviceLevels = [];
-        var deviceIDs = [];
+        // Assign a Power level and an ID to each device
+        var devices = [];
 
-        deviceMap.forEach(function(device){
-            // console.log('dif', now.format() - Date.parse(device["Last time seen"]));
-
+        deviceMap.forEach(function (device) {
             if (now - Date.parse(device["Last time seen"]) < interval * 1000) {
-                deviceLevels.push(device.Power);
-                deviceIDs.push((new Buffer(crypto.createHash('sha256').update(device["Station MAC"]).digest())).readUInt32LE(0));
-            }
+                devices.push({
+                    signal_strength: device.Power,
+                    ID: hashMacAddress(device["Station MAC"], new Date())
+                });
 
+            }
         });
 
         return {
             date: now.format(),
-            signal_strengths: deviceLevels,
-            IDs: deviceIDs
+            devices: devices
         };
     },
 

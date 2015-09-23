@@ -14,5 +14,21 @@ module.exports = function(buffer){
     protoDecoded.forEach(function(measurement){
         measurement.signal_strengths = deltaDecode(measurement.signal_strengths);
     });
-    return protoDecoded;
+    return protoDecoded.map(function (measurement) {
+
+        var devices = measurement.signal_strengths.map(function (signal_strength, index) {
+            return {
+                signal_strength: signal_strength,
+                // This line (ID) was made in order to keep retrocompatibility from 6sense v0.1.2
+                // If there is no sensors using the v0.1.2, it should be changed by the following line :
+                // ID: measurement.IDs[index]
+                ID: (measurement.IDs && index < measurement.IDs.length) ? measurement.IDs[index] : undefined
+            };
+        })
+
+        return {
+            date: measurement.date,
+            devices: devices
+        }
+    });
 };

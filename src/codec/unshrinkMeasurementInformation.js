@@ -11,11 +11,18 @@ function fromByte(v){
 }
 
 module.exports = function unshrinkMeasurementInformation(measurement){
-    var unshinkedDate = moment.unix(measurement.date*60 + MIN_DATE_UNIX_TIMESTAMP);
+
+    // Unshrink date
+    var unshrinkedDate = moment.unix(measurement.date*60 + MIN_DATE_UNIX_TIMESTAMP);
     
+    // Unshrink signal strengths
+    var devices = measurement.devices.map(function (device) {
+        device.signal_strength = fromByte(device.signal_strength)
+        return device;
+    })
+
     return {
-        date: unshinkedDate,
-        signal_strengths: measurement.signal_strengths.map(fromByte),
-        IDs: measurement.IDs
+        date: unshrinkedDate,
+        devices: devices
     };
 };
