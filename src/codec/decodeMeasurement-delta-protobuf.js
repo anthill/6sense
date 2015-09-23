@@ -14,5 +14,18 @@ module.exports = function(buffer){
     protoDecoded.forEach(function(measurement){
         measurement.signal_strengths = deltaDecode(measurement.signal_strengths);
     });
-    return protoDecoded;
+    return protoDecoded.map(function (measurement, index) {
+
+        var devices = measurement.signal_strengths.map(function (signal_strength, index) {
+            return {
+                signal_strength: signal_strength,
+                ID: (measurement.IDs && index < measurement.IDs.length) ? measurement.IDs[index] : undefined
+            };
+        })
+
+        return {
+            date: measurement.date,
+            devices: devices
+        }
+    });
 };
