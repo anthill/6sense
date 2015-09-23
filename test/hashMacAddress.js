@@ -38,6 +38,7 @@ describe('hashMacAddress', function() {
         expect(hash2).to.not.equal(hash1);
     })
 
+    // This test may fail sometimes. It's a normal outcome
     it('should not have collisions for 1000 hashs', function() {
         var previousHash;
         var thisHash;
@@ -63,6 +64,7 @@ describe('hashMacAddress', function() {
         })
     })
 
+    // This test may fail sometimes. It's a normal outcome
     it ('should not return a hash that is a substring of the MAC address', function () {
         var hash;
         var macAddress;
