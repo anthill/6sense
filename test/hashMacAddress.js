@@ -15,7 +15,7 @@ function generateRandomMac() {
 describe('hashMacAddress', function() {
     
     it('should hash a MAC address', function() {
-        var hashed = hashMacAddress(generateRandomMac, new Date().toISOString().slice(0, 10));
+        var hashed = hashMacAddress(generateRandomMac, new Date());
         
         expect(hashed).to.exist;
     });    
@@ -23,8 +23,8 @@ describe('hashMacAddress', function() {
     it('should be deterministic', function() {
         var macAddress = generateRandomMac();
 
-        var hash1 = hashMacAddress(macAddress, new Date().toISOString().slice(0, 10));
-        var hash2 = hashMacAddress(macAddress, new Date().toISOString().slice(0, 10));
+        var hash1 = hashMacAddress(macAddress, new Date());
+        var hash2 = hashMacAddress(macAddress, new Date());
 
         expect(hash2).to.be.equal(hash1);
     })
@@ -32,8 +32,8 @@ describe('hashMacAddress', function() {
     it ('should change the hash everyday', function() {
         var macAddress = generateRandomMac();
 
-        var hash1 = hashMacAddress(macAddress, new Date('2015-05-15T14:38:00+02:00').toISOString().slice(0, 10));
-        var hash2 = hashMacAddress(macAddress, new Date('2015-05-16T14:38:00+02:00').toISOString().slice(0, 10));
+        var hash1 = hashMacAddress(macAddress, new Date('2015-05-15T14:38:00+02:00'));
+        var hash2 = hashMacAddress(macAddress, new Date('2015-05-16T14:38:00+02:00'));
 
         expect(hash2).to.not.equal(hash1);
     })
@@ -43,7 +43,7 @@ describe('hashMacAddress', function() {
         var thisHash;
 
         for (var i = 0; i <= 1000; ++i) {
-            thisHash = hashMacAddress(generateRandomMac(), new Date().toISOString().slice(0, 10))
+            thisHash = hashMacAddress(generateRandomMac(), new Date())
 
             expect(thisHash).to.not.equal(previousHash)
             previousHash = thisHash;
@@ -56,7 +56,7 @@ describe('hashMacAddress', function() {
         var thisHash;
 
         macAddresses.forEach(function (address) {
-            thisHash = hashMacAddress(address, new Date().toISOString().slice(0, 10))
+            thisHash = hashMacAddress(address, new Date())
 
             expect(thisHash).to.not.equal(previousHash);
             previousHash = thisHash;
@@ -69,7 +69,7 @@ describe('hashMacAddress', function() {
 
         for (var i = 0; i <= 1000; ++i) {
             macAddress = generateRandomMac();
-            hash = hashMacAddress(macAddress, new Date().toISOString().slice(0, 10));
+            hash = hashMacAddress(macAddress, new Date());
 
             expect(macAddress.replace(/:/g, '').indexOf(hash.toString(16))).to.be.equal(-1)
         }

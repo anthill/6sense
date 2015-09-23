@@ -32,7 +32,7 @@ module.exports = {
         .map(function (device) {
             return {
                 signal_strength: device.Power,
-                ID: hashMacAddress(device["Station MAC"], (new Date()).toISOString().slice(0, 10))
+                ID: hashMacAddress(device["Station MAC"], new Date())
             }
         });
         return {

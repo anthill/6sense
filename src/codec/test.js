@@ -12,7 +12,7 @@ var encodeZip = require('./encodeMeasurement-zip');
 var hashMacAddress = require('../hashMacAddress')
 
 function hashID(id) {
-    return hashMacAddress(id, (new Date()).toISOString().slice(0, 10));
+    return hashMacAddress(id, new Date());
 }
 
 var measurements = [

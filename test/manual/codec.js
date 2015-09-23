@@ -7,7 +7,7 @@ var decodeForSMS = require('../../src/codec/decodeFromSMS');
 var hashMacAddress = require('../../src/hashMacAddress')
 
 function hashID(id) {
-    return hashMacAddress(id, (new Date()).toISOString().slice(0, 10));
+    return hashMacAddress(id, new Date());
 }
 
 var measurements = [
