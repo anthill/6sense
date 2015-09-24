@@ -2,7 +2,7 @@
 
 var noble = require('noble');
 var machina = require('machina');
-var exec = require('child_process').exec:
+var exec = require('child_process').exec;
 var path = require('path');
 
 var EXIT_GRACE_PERIOD = 10000; // milliseconds
