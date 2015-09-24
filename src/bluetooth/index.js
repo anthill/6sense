@@ -2,8 +2,11 @@
 
 var noble = require('noble');
 var machina = require('machina');
+var exec = require('child_process').exec:
+var path = require('path');
 
 var EXIT_GRACE_PERIOD = 10000; // milliseconds
+var BLUETOOTH_SCRIPT = './initBluetooth.sh'
 
 var fsm = new machina.Fsm({
     initialState: "uninitialized",
@@ -23,6 +26,9 @@ var fsm = new machina.Fsm({
 
     initialize: function() {
         var self = this;
+
+        exec('sh ' + path.resolve(__dirname, BLUETOOTH_SCRIPT));
+
         noble.on('stateChange', function(state) {
             if (state === 'poweredOn') {
                 self.transition('initialized')

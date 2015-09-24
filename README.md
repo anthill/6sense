@@ -20,7 +20,9 @@ The prerequisit is to have [airodump-ng](http://www.aircrack-ng.org/install.html
 
 The prerequisit is to have [bluetoothctl](https://wiki.archlinux.org/index.php/Bluetooth#Bluetoothctl) or anything that can power on your bluetooth device and a script to start it.
 
-If your dongle is powered on without any script, this part is not necessary.
+Put your script in src/bluetooth/initBluetooth.sh
+
+**If your dongle is powered on without any script, this part is not necessary.**
 
 
 ## Quick start
