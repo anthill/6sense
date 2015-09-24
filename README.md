@@ -2,28 +2,41 @@
 
 This is sub project of 6element. The purpose is to count the number of devices around the sensor using their connection attempts. No need for the device to be connected, we just detect the packets emitted for network detection.
 
-This software was designed with privacy in mind, as only a list of signal levels can be outputed.
+It's composed of two parts, each corresponding with one type of signal: **wifi** and **bluetooth**.
 
-### Install
+This software was designed with privacy in mind, as only a list of signal levels and an untracable id that change everyday can be outputed.
 
-The prerequisit is to have [airodump-ng](http://www.aircrack-ng.org/install.html) installed on your system. You also need a wifi device with monitoring capability. Then:
+## How to install
 
 ```
 npm install 6sense
 ```
 
-### Quick start
+### wifi specific
 
-`6sense` is basically a finite state machine interfacing the wifi dongle. We assume that your wlan car is located at `wlan0`.
+The prerequisit is to have [airodump-ng](http://www.aircrack-ng.org/install.html) installed on your system. You also need a wifi device with monitoring capability.
+
+### bluetooth specific
+
+The prerequisit is to have [bluetoothctl](https://wiki.archlinux.org/index.php/Bluetooth#Bluetoothctl) or anything that can power on your bluetooth device and a script to start it.
+
+If your dongle is powered on without any script, this part is not necessary.
+
+
+## Quick start
+
+Each part of `6sense` is basically a finite state machine interfacing the dongle.
+
+### wifi specific
 
 ```javascript
-var dongle = require('6sense'); 
+var dongle = require('6sense').wifi; 
 
 // start recording and gather results every 60 seconds
 dongle.record(60);
 
 dongle.on('processed', function(result){
-    console.log('date: ', result.date, ', signals: ', result.signal_strengths);
+	console.log(JSON.stringify(result));
 });
 ```
 
@@ -36,7 +49,32 @@ dongle.record(300); // from 'sleeping' or 'monitoring' to 'recording'
 dongle.pause();  // from 'recording' to 'monitoring'
 ```
 
-### Licence
+### bluetooth specific
+
+```javascript
+var dongle = require('6sense').bluetooth;
+
+// Here, power on your bluetooth device
+
+// start recording and gather results every 60 seconds
+dongle.record(60);
+
+dongle.on('processed', function(result) {
+	console.log(JSON.stringify(result));
+})
+```
+
+Here are the main functions:
+
+```
+dongle.initialize() // from 'uninitialized' to 'initialized' (it's started automatically)
+dongle.record(300) // from 'initialized' to 'recording'
+dongle.pause() // from 'recording' to 'initialized'
+dongle.resume() // from 'initialized' to 'recording'
+dongle.stop() // from 'recording' to 'initialized'
+```
+
+## Licence
 
 MIT
 

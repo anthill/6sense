@@ -13,7 +13,7 @@
 
 var moment = require('moment-timezone');
 var createList = require('./utils.js').createOrderedList;
-var hashMacAddress = require('./hashMacAddress.js');
+var hashMacAddress = require('../general/hashMacAddress.js');
 
 module.exports = {
 

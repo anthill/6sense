@@ -4,10 +4,10 @@ require('es6-shim');
 
 var expect = require('chai').expect;
 
-var hashMacAddress = require('../src/hashMacAddress');
+var hashMacAddress = require('../src/general/hashMacAddress');
 
 function generateRandomMac() {
-    return "XX:XX:XX:XX:XX:XX".replace(/X/g,function () {
+    return "XX:XX:XX:XX:XX:XX".replace(/X/g, function () {
         return Math.random().toString(16).toUpperCase().charAt(3)
     })
 }
