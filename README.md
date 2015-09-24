@@ -4,7 +4,7 @@ This is sub project of 6element. The purpose is to count the number of devices a
 
 It's composed of two parts, each corresponding with one type of signal: **wifi** and **bluetooth**.
 
-This software was designed with privacy in mind, as only a list of signal levels and an untracable id that change everyday can be outputed.
+This software was designed with privacy in mind, as only a list of signal levels and an untraceable id that change everyday can be outputed.
 
 ## How to install
 
