@@ -5,8 +5,7 @@ var machina = require('machina');
 var exec = require('child_process').exec;
 var path = require('path');
 
-var EXIT_GRACE_PERIOD = 10000; // milliseconds
-var BLUETOOTH_SCRIPT = './initBluetooth.sh'
+var BLUETOOTH_SCRIPT = './initBluetooth.sh';
 
 var fsm = new machina.Fsm({
     initialState: "uninitialized",
@@ -20,7 +19,7 @@ var fsm = new machina.Fsm({
 
         Object.keys(fsm.devices).forEach(function (key) {
             measurement.devices.push({ID: fsm.devices[key].ID, signal_strength: fsm.devices[key].signal_strength});
-        })
+        });
         fsm.emit('processed', measurement);
     },
 
@@ -31,18 +30,18 @@ var fsm = new machina.Fsm({
 
         noble.on('stateChange', function(state) {
             if (state === 'poweredOn') {
-                self.transition('initialized')
+                self.transition('initialized');
             }
             else {
                 noble.stopScanning();
             }
-        })
+        });
     },
 
     states: {
         "uninitialized": {
             _onEnter: function() {
-                console.log('bluetooth state :', this.state)
+                console.log('bluetooth state :', this.state);
             },
 
             record: function(_period){
@@ -53,7 +52,7 @@ var fsm = new machina.Fsm({
 
         "initialized": {
             _onEnter: function() {
-                console.log('bluetooth state :', this.state)
+                console.log('bluetooth state :', this.state);
             },
 
             record: function(_period) {
@@ -63,22 +62,24 @@ var fsm = new machina.Fsm({
                 noble.startScanning([], true);
 
                 noble.on('scanStart', function() {
+                    if (self.recordInterval)
+                        clearInterval(self.recordInterval);
                     self.recordInterval = setInterval(self.sendMeasurement, self.period * 1000);
-                    self.transition('recording')
+                    self.transition('recording');
                 });
             }
         },
 
         "recording": {
             _onEnter: function() {
-                console.log('bluetooth state :', this.state)
+                console.log('bluetooth state :', this.state);
             },
 
             stopRecording: function() {
                 var self = this;
                 noble.stopScanning();
                 noble.on('scanStop', function() {
-                    clearInterval(self.recordInterval)
+                    clearInterval(self.recordInterval);
                     self.recordInterval = null;
 
                     self.transition('initialized');
@@ -103,7 +104,7 @@ var fsm = new machina.Fsm({
         fsm.handle('stopRecording');
     }
 
-})
+});
 
 noble.on('discover', function(peripheral) {
     var id = peripheral.id;
@@ -118,10 +119,10 @@ noble.on('discover', function(peripheral) {
 
 setInterval(function() {
                     for (var id in fsm.devices) {
-                        if (fsm.devices[id].lastSeen < (Date.now() - EXIT_GRACE_PERIOD)) {
+                        if (fsm.devices[id].lastSeen < (Date.now() - ((fsm.period * 1000) || 60000))) {
                             delete fsm.devices[id];
                         }
                     }
-                }, EXIT_GRACE_PERIOD / 2);
+                }, ((fsm.period * 1000) || 60000) / 2);
 
 module.exports = fsm;
