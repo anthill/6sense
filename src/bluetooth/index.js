@@ -18,7 +18,7 @@ var fsm = new machina.Fsm({
         var measurement = {date: new Date(), devices: []};
 
         Object.keys(fsm.devices).forEach(function (key) {
-            measurement.devices.push({ID: fsm.devices[key].ID, signal_strength: fsm.devices[key].signal_strength});
+            measurement.devices.push(fsm.devices[key]);
         });
         fsm.emit('processed', measurement);
     },
@@ -111,7 +111,7 @@ noble.on('discover', function(peripheral) {
     var entered = !fsm.devices[id];
 
     if (entered) {
-        fsm.devices[id] = {ID: id, signal_strength: peripheral.rssi};
+        fsm.devices[id] = {signal_strength: peripheral.rssi};
     }
 
     fsm.devices[id].lastSeen = Date.now();

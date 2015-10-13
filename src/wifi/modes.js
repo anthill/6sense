@@ -13,7 +13,6 @@
 
 var moment = require('moment-timezone');
 var createList = require('./utils.js').createOrderedList;
-var hashMacAddress = require('../general/hashMacAddress.js');
 
 module.exports = {
 
@@ -30,8 +29,7 @@ module.exports = {
         deviceMap.forEach(function (device) {
             if (now - Date.parse(device["Last time seen"]) < interval * 1000) {
                 devices.push({
-                    signal_strength: device.Power,
-                    ID: hashMacAddress(device["Station MAC"], new Date())
+                    signal_strength: device.Power
                 });
 
             }
