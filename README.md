@@ -32,7 +32,7 @@ Each part of `6sense` is basically a finite state machine interfacing the dongle
 ### wifi specific
 
 ```javascript
-var dongle = require('6sense').wifi; 
+var dongle = require('6sense').wifi(); 
 
 // start recording and gather results every 60 seconds
 dongle.record(60);
@@ -54,7 +54,7 @@ dongle.pause();  // from 'recording' to 'monitoring'
 ### bluetooth specific
 
 ```javascript
-var dongle = require('6sense').bluetooth;
+var dongle = require('6sense').bluetooth();
 
 // Here, power on your bluetooth device
 

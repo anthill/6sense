@@ -11,221 +11,225 @@ var emitter = require('./parseOutput.js').emitter;
 var QUERY_TIMEOUT = 10*1000*2;
 
 
-var fsm = new machina.Fsm({
+function createFsmWifi () {
 
-    initialState: "sleeping",
+    var fsm = new machina.Fsm({
 
-    myInterface: 'wlan0',
-    process: null,
-    file: null,
-    watcher: null,
-    interval: null,
+        initialState: "sleeping",
 
-    initialize: function(){
-        try{
-            spawn("airmon-ng", ["stop", this.myInterface + "mon"]);
-        } catch(err){
-            console.log('err', err, err.stack);
-            console.log('Initialize: Couldn\'t spawn airmon-ng');
-        }
-    },
+        myInterface: 'wlan0',
+        process: null,
+        file: null,
+        watcher: null,
+        interval: null,
 
-    states: {
-        "sleeping": {
-
-            _onEnter: function() {
-                console.log('ZZZzzzZZZzzz... ', this.state, ' ...ZZZzzzZZZzzz');
-            },
-
-            changeInterface: function(newInterface) {
-                if (newInterface)
-                    this.myInterface = newInterface;
-                this.handle('initialize')
-            },
-
-            wakeUp: function(){
-                var self = this;
-
-                enterMonitorMode(this.myInterface)
-                .then(function(){
-                    console.log('OK all good !');
-                    self.transition('monitoring');
-                })
-                .catch(function(err){ // if error, what about deferUntilTransition ? still pending ??
-                    console.log('err', err, err.stack);
-                    console.log('Couldn\'t enter Monitor mode... Going back to sleep.');
-                    exitMonitorMode();
-                });
-            },
-
-            record: function(options){
-                this.deferUntilTransition(options);
-                this.handle('wakeUp');
-            },
-
-            _onExit: function(){
-                console.log('Exiting sleeping state');
-            }
-
-        },
-
-        "monitoring": {
-
-            _onEnter: function(){
-                console.log('============== ' + this.state + ' ==============');
-            },
-
-            tryToSleep: function(){
-                var self = this;
-
-                exitMonitorMode(self.myInterface)
-                .then(function(){
-                    console.log('Monitor mode deactivated');
-                    self.myInterface = null;
-                    self.transition('sleeping');
-                })
-                .catch(function(err){
-                    console.log('err', err, err.stack);
-                    console.log('Couldn\'t exit Monitor mode, still monitoring');
-                });
-            },
-
-            record: function(options){
-                var self = this;
-
-                options.interface = this.myInterface;
-
-                this.interval = options['--write-interval'];
-
-                startRecording(options)
-                .then(function(results){
-                    self.file = results.file;
-                    self.process = results.airodumpProcess;
-                    self.transition('recording');
-                })
-                .catch(function(err){
-                    console.log('err', err, err.stack);
-                    console.log('Couldn\'t enter Recording mode, still monitoring');
-                });
-            },
-
-            _onExit: function(){
-                console.log('Exiting monitoring state');
+        initialize: function(){
+            try{
+                spawn("airmon-ng", ["stop", this.myInterface + "mon"]);
+            } catch(err){
+                console.log('err', err, err.stack);
+                console.log('Initialize: Couldn\'t spawn airmon-ng');
             }
         },
 
-        "recording": {
+        states: {
+            "sleeping": {
 
-            _onEnter: function(){
-                var self = this;
-                console.log('************** ' + this.state + ' **************');
-                try {
-                    fs.unlinkSync("./report-01.csv");
-                } catch(err) {
-                    console.log('err', err, err.stack);
-                    console.log('Couldn\'t unlink report file');
-                }
-                console.log('Checking ',  this.file);
-                console.log('interval ',  this.interval);
+                _onEnter: function() {
+                    console.log('ZZZzzzZZZzzz... ', this.state, ' ...ZZZzzzZZZzzz');
+                },
 
-                if (this.file){
-                    console.log('Watching ' + this.file);
+                changeInterface: function(newInterface) {
+                    if (newInterface)
+                        this.myInterface = newInterface;
+                    this.handle('initialize');
+                },
 
-                    emitter.on('parseProcessed', function(results){
-                        self.emit('processed', results);
+                wakeUp: function(){
+                    var self = this;
+
+                    enterMonitorMode(this.myInterface)
+                    .then(function(){
+                        console.log('OK all good !');
+                        self.transition('monitoring');
+                    })
+                    .catch(function(err){ // if error, what about deferUntilTransition ? still pending ??
+                        console.log('err', err, err.stack);
+                        console.log('Couldn\'t enter Monitor mode... Going back to sleep.');
+                        exitMonitorMode();
                     });
+                },
 
-                    setTimeout(function(){ // smoothing timings
-                        self.watcher = fs.watch(self.file, function(){
-                            parser(self.file, self.interval);
-                        });
-                    }, 1000);
+                record: function(options){
+                    this.deferUntilTransition(options);
+                    this.handle('wakeUp');
+                },
+
+                _onExit: function(){
+                    console.log('Exiting sleeping state');
                 }
-                else{
-                    console.log('Couldn\'t find the file to be watched');
-                    self.transition('monitoring');
+
+            },
+
+            "monitoring": {
+
+                _onEnter: function(){
+                    console.log('============== ' + this.state + ' ==============');
+                },
+
+                tryToSleep: function(){
+                    var self = this;
+
+                    exitMonitorMode(self.myInterface)
+                    .then(function(){
+                        console.log('Monitor mode deactivated');
+                        self.myInterface = null;
+                        self.transition('sleeping');
+                    })
+                    .catch(function(err){
+                        console.log('err', err, err.stack);
+                        console.log('Couldn\'t exit Monitor mode, still monitoring');
+                    });
+                },
+
+                record: function(options){
+                    var self = this;
+
+                    options.interface = this.myInterface;
+
+                    this.interval = options['--write-interval'];
+
+                    startRecording(options)
+                    .then(function(results){
+                        self.file = results.file;
+                        self.process = results.airodumpProcess;
+                        self.transition('recording');
+                    })
+                    .catch(function(err){
+                        console.log('err', err, err.stack);
+                        console.log('Couldn\'t enter Recording mode, still monitoring');
+                    });
+                },
+
+                _onExit: function(){
+                    console.log('Exiting monitoring state');
                 }
-
             },
 
-            tryToSleep: function(){
-                this.deferUntilTransition();
-                this.handle('pause');
-            },
+            "recording": {
 
-            pause: function(){
-                var self = this;
-
-                console.log('pausing', this.process.pid);
-                emitter.removeAllListeners('parseProcessed'); // In order to send only one event 'processed'
-                stopRecording(this.process)
-                .then(function(){
-                    console.log('Stopping the file watch');
-                    self.watcher.close();
-                    self.transition('monitoring');
-                })
-                .catch(function(err){
-                    console.log('err', err, err.stack);
-                    console.log('Couldn\'t exit Recording mode, still monitoring');
-                });
-            },
-
-            _onExit: function(){
-                emitter.removeAllListeners('results');
-
-                setTimeout(function(){ // smoothing timings
+                _onEnter: function(){
+                    var self = this;
+                    console.log('************** ' + this.state + ' **************');
                     try {
                         fs.unlinkSync("./report-01.csv");
                     } catch(err) {
                         console.log('err', err, err.stack);
                         console.log('Couldn\'t unlink report file');
                     }
-                    this.file = null;
-                    this.processes = null;
-                    this.watcher = null;
-                    this.interval = null;
-                }, 500);
-                console.log('Exiting recording state');
+                    console.log('Checking ',  this.file);
+                    console.log('interval ',  this.interval);
+
+                    if (this.file){
+                        console.log('Watching ' + this.file);
+
+                        emitter.on('parseProcessed', function(results){
+                            self.emit('processed', results);
+                        });
+
+                        setTimeout(function(){ // smoothing timings
+                            self.watcher = fs.watch(self.file, function(){
+                                parser(self.file, self.interval);
+                            });
+                        }, 1000);
+                    }
+                    else{
+                        console.log('Couldn\'t find the file to be watched');
+                        self.transition('monitoring');
+                    }
+
+                },
+
+                tryToSleep: function(){
+                    this.deferUntilTransition();
+                    this.handle('pause');
+                },
+
+                pause: function(){
+                    var self = this;
+
+                    console.log('pausing', this.process.pid);
+                    emitter.removeAllListeners('parseProcessed'); // In order to send only one event 'processed'
+                    stopRecording(this.process)
+                    .then(function(){
+                        console.log('Stopping the file watch');
+                        self.watcher.close();
+                        self.transition('monitoring');
+                    })
+                    .catch(function(err){
+                        console.log('err', err, err.stack);
+                        console.log('Couldn\'t exit Recording mode, still monitoring');
+                    });
+                },
+
+                _onExit: function(){
+                    emitter.removeAllListeners('results');
+
+                    setTimeout(function(){ // smoothing timings
+                        try {
+                            fs.unlinkSync("./report-01.csv");
+                        } catch(err) {
+                            console.log('err', err, err.stack);
+                            console.log('Couldn\'t unlink report file');
+                        }
+                        this.file = null;
+                        this.processes = null;
+                        this.watcher = null;
+                        this.interval = null;
+                    }, 500);
+                    console.log('Exiting recording state');
+                }
             }
+        },
+
+        wakeUp: function(){
+            this.handle('wakeUp');
+        },
+
+        sleep: function(){
+            this.handle('tryToSleep');
+        },
+
+        // This is in case you need to call RECORD with arguments. Not using it since it's not practical
+
+        /*record: function(format, refreshTime, path, myInterface){
+
+            var options = {
+                '--output-format': format,
+                '--write-interval': refreshTime,
+                '--write': path,
+                'interface': myInterface
+            };
+        */
+
+        record: function(interval){
+
+            var options = {
+                '--output-format': 'csv',
+                '--write-interval': interval,
+                '--write': './'
+            };
+
+            this.handle('record', options);
+        },
+
+        pause: function(){
+            this.handle('pause');
         }
-    },
+    });
 
-    wakeUp: function(){
-        this.handle('wakeUp');
-    },
-
-    sleep: function(){
-        this.handle('tryToSleep');
-    },
-
-    // This is in case you need to call RECORD with arguments. Not using it since it's not practical
-
-    /*record: function(format, refreshTime, path, myInterface){
-
-        var options = {
-            '--output-format': format,
-            '--write-interval': refreshTime,
-            '--write': path,
-            'interface': myInterface
-        };
-    */
-
-    record: function(interval){
-
-        var options = {
-            '--output-format': 'csv',
-            '--write-interval': interval,
-            '--write': './'
-        };
-
-        this.handle('record', options);
-    },
-
-    pause: function(){
-        this.handle('pause')
-    }
-});
-
+    return fsm;
+}
 
 function enterMonitorMode(myInterface){
     // this spawns the AIRMON-NG START process whose purpose is to set the wifi card in monitor mode
@@ -250,13 +254,13 @@ function enterMonitorMode(myInterface){
         myProcess.stderr.on("data", function(chunkBuffer){
             var message = chunkBuffer.toString();
             console.log("Error => " + message);
-            fsm.emit('monitorError', message)
+            fsm.emit('monitorError', message);
             reject(new Error("Entering monitor mode => " + message));
         });
 
         // on timeout, reject Promise
         timeout = setTimeout(function(){
-            fsm.emit('monitorError', 'timeout')
+            fsm.emit('monitorError', 'timeout');
             reject(new Error("Entering monitor mode => Timeout"));
         }, QUERY_TIMEOUT);
     });
@@ -333,7 +337,7 @@ function startRecording(optObj){
 
         // on timeout, reject Promise
         setTimeout(function(){
-            fsm.emit('recordError', 'timeout')
+            fsm.emit('recordError', 'timeout');
             reject(new Error("airodump Error => Timeout"));
         }, QUERY_TIMEOUT);
     });
@@ -351,7 +355,7 @@ function stopRecording(process){
             console.log('Process killed');
             resolve(code);
         });
-    })
+    });
 }
 
-module.exports = fsm;
+module.exports = createFsmWifi;
