@@ -228,134 +228,135 @@ function createFsmWifi () {
         }
     });
 
+    function enterMonitorMode(myInterface){
+        // this spawns the AIRMON-NG START process whose purpose is to set the wifi card in monitor mode
+        // it is a one-shot process, that stops right after success
+        return new Promise(function(resolve, reject){
+            console.log('Activating Monitor mode... ' + myInterface);
+            var myProcess = spawn("airmon-ng", ["start", myInterface]);
+            var timeout;
+
+            // on success, resolve Promise
+            myProcess.stdout.on("data", function(chunkBuffer){
+                // check chunk buffer for final line output and then enter
+                var message = chunkBuffer.toString();
+                if (message.match(/monitor mode vif enabled/)) {
+                    if (timeout)
+                        clearTimeout(timeout);
+                    resolve(myProcess.pid);
+                }
+            });
+
+            // on error, reject Promise
+            myProcess.stderr.on("data", function(chunkBuffer){
+                var message = chunkBuffer.toString();
+                console.log("Error => " + message);
+                fsm.emit('monitorError', message);
+                reject(new Error("Entering monitor mode => " + message));
+            });
+
+            // on timeout, reject Promise
+            timeout = setTimeout(function(){
+                fsm.emit('monitorError', 'timeout');
+                reject(new Error("Entering monitor mode => Timeout"));
+            }, QUERY_TIMEOUT);
+        });
+    }
+
+    function exitMonitorMode(myInterface){
+        // this spawns the AIRMON-NG STOP process, whose purpose is to set the wifi card in normal mode
+        // it is a one-shot process, that stops right after success
+        return new Promise(function(resolve, reject){
+            console.log("Deactivating Monitor mode... " + myInterface);
+            var myProcess = spawn("airmon-ng", ["stop", myInterface + "mon"]);
+
+            // on success, resolve Promise
+            myProcess.stdout.on("data", function(chunkBuffer){
+                var message = chunkBuffer.toString();
+                // console.log("Data => " + message);
+                if (message.match(/monitor mode vif disabled/))
+                    resolve(myProcess.pid);
+            });
+
+            // on error, reject Promise
+            myProcess.stderr.on("data", function(chunkBuffer){
+                var message = chunkBuffer.toString();
+                console.log("Error => " + message);
+                reject(new Error("Exiting monitor mode => " + message));
+            });
+
+            // on timeout, reject Promise
+            setTimeout(function(){
+                reject(new Error("Exiting monitor mode => Timeout"));
+            }, QUERY_TIMEOUT);
+        });
+    }
+
+
+
+    function startRecording(optObj){
+        /*
+            This starts a recording process which is composed of two steps:
+            1°) spawns AIRODUMP-NG with optObj options. This will write a dump file reporting devices that are trying to access wifi
+            2°) spawns a node process that watches the dump file and formats it into a correct output.
+            Both will need to be killed.
+        */
+
+        console.log('Starting recording process...');
+
+        optObj['--write'] += 'report'; // path to airodump output file
+        var file = optObj['--write'] + '-01.csv'; // path to airodump output file
+        var options = [];
+
+        for (var field in optObj){
+            if (field !== 'interface'){
+                options.push(field);
+                options.push(optObj[field]);
+            } else
+                options.push(optObj[field] + 'mon');
+        }
+
+        console.log('options list', options);
+
+        // spawning airodump process
+        return new Promise(function(resolve, reject){
+            console.log('Starting airodump process');
+            var airodumpProcess = spawn("airodump-ng", options);
+            console.log("airodumpProcess: ", airodumpProcess.pid);
+
+            // on error, resolve Promise => weird, but ok
+            airodumpProcess.stderr.on("data", function(){
+                resolve({
+                    file: file,
+                    airodumpProcess: airodumpProcess
+                });
+            });
+
+            // on timeout, reject Promise
+            setTimeout(function(){
+                fsm.emit('recordError', 'timeout');
+                reject(new Error("airodump Error => Timeout"));
+            }, QUERY_TIMEOUT);
+        });
+    }
+
+    function stopRecording(process){
+
+        console.log('Stopping process...');
+
+        return new Promise(function(resolve, reject){
+            console.log('killing process id', process.pid);
+            process.kill();
+            process.on('error', reject);
+            process.on('exit', function(code){
+                console.log('Process killed');
+                resolve(code);
+            });
+        });
+    }
+
     return fsm;
 }
 
-function enterMonitorMode(myInterface){
-    // this spawns the AIRMON-NG START process whose purpose is to set the wifi card in monitor mode
-    // it is a one-shot process, that stops right after success
-    return new Promise(function(resolve, reject){
-        console.log('Activating Monitor mode... ' + myInterface);
-        var myProcess = spawn("airmon-ng", ["start", myInterface]);
-        var timeout;
-
-        // on success, resolve Promise
-        myProcess.stdout.on("data", function(chunkBuffer){
-            // check chunk buffer for final line output and then enter
-            var message = chunkBuffer.toString();
-            if (message.match(/monitor mode vif enabled/)) {
-                if (timeout)
-                    clearTimeout(timeout);
-                resolve(myProcess.pid);
-            }
-        });
-
-        // on error, reject Promise
-        myProcess.stderr.on("data", function(chunkBuffer){
-            var message = chunkBuffer.toString();
-            console.log("Error => " + message);
-            fsm.emit('monitorError', message);
-            reject(new Error("Entering monitor mode => " + message));
-        });
-
-        // on timeout, reject Promise
-        timeout = setTimeout(function(){
-            fsm.emit('monitorError', 'timeout');
-            reject(new Error("Entering monitor mode => Timeout"));
-        }, QUERY_TIMEOUT);
-    });
-}
-
-function exitMonitorMode(myInterface){
-    // this spawns the AIRMON-NG STOP process, whose purpose is to set the wifi card in normal mode
-    // it is a one-shot process, that stops right after success
-    return new Promise(function(resolve, reject){
-        console.log("Deactivating Monitor mode... " + myInterface);
-        var myProcess = spawn("airmon-ng", ["stop", myInterface + "mon"]);
-
-        // on success, resolve Promise
-        myProcess.stdout.on("data", function(chunkBuffer){
-            var message = chunkBuffer.toString();
-            // console.log("Data => " + message);
-            if (message.match(/monitor mode vif disabled/))
-                resolve(myProcess.pid);
-        });
-
-        // on error, reject Promise
-        myProcess.stderr.on("data", function(chunkBuffer){
-            var message = chunkBuffer.toString();
-            console.log("Error => " + message);
-            reject(new Error("Exiting monitor mode => " + message));
-        });
-
-        // on timeout, reject Promise
-        setTimeout(function(){
-            reject(new Error("Exiting monitor mode => Timeout"));
-        }, QUERY_TIMEOUT);
-    });
-}
-
-
-
-function startRecording(optObj){
-    /*
-        This starts a recording process which is composed of two steps:
-        1°) spawns AIRODUMP-NG with optObj options. This will write a dump file reporting devices that are trying to access wifi
-        2°) spawns a node process that watches the dump file and formats it into a correct output.
-        Both will need to be killed.
-    */
-
-    console.log('Starting recording process...');
-
-    optObj['--write'] += 'report'; // path to airodump output file
-    var file = optObj['--write'] + '-01.csv'; // path to airodump output file
-    var options = [];
-
-    for (var field in optObj){
-        if (field !== 'interface'){
-            options.push(field);
-            options.push(optObj[field]);
-        } else
-            options.push(optObj[field] + 'mon');
-    }
-
-    console.log('options list', options);
-
-    // spawning airodump process
-    return new Promise(function(resolve, reject){
-        console.log('Starting airodump process');
-        var airodumpProcess = spawn("airodump-ng", options);
-        console.log("airodumpProcess: ", airodumpProcess.pid);
-
-        // on error, resolve Promise => weird, but ok
-        airodumpProcess.stderr.on("data", function(){
-            resolve({
-                file: file,
-                airodumpProcess: airodumpProcess
-            });
-        });
-
-        // on timeout, reject Promise
-        setTimeout(function(){
-            fsm.emit('recordError', 'timeout');
-            reject(new Error("airodump Error => Timeout"));
-        }, QUERY_TIMEOUT);
-    });
-}
-
-function stopRecording(process){
-
-    console.log('Stopping process...');
-
-    return new Promise(function(resolve, reject){
-        console.log('killing process id', process.pid);
-        process.kill();
-        process.on('error', reject);
-        process.on('exit', function(code){
-            console.log('Process killed');
-            resolve(code);
-        });
-    });
-}
 
 module.exports = createFsmWifi;
