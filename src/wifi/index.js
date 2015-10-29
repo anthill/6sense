@@ -10,7 +10,9 @@ var schedule = require('node-schedule');
 var PacketReader = require('./packet-reader');
 
 var QUERY_TIMEOUT = 10*1000*2;
-var MAX_LAST_SEEN = 60 * 1000; // Precision : Up to +10%
+var ALL_DAY_MAX_LAST_SEEN = 60 * 1000; // Precision : Up to +10%
+var ALL_DAY_SIGNAL_PRECISION = 5; // In dB
+var ALL_DAY_DATE_PRECISION = 30 * 1000; // In seconds
 
 
 function execPromise(command, callback) {
@@ -45,6 +47,7 @@ function createFsmWifi () {
 
         initialize: function(){
             if (this.packetReader) {
+                this.sleep();
                 this.packetReader.stop();
             }
 
@@ -318,7 +321,7 @@ function createFsmWifi () {
                     fsm.instantMap[packet.mac_address] = [packet.signal_strength];
                 }
                 else {
-                    if (packet.signal_strength !== fsm.instantMap[packet.mac_address].slice(-1)[0]) // maybe add a delta_min ?
+                    if (packet.signal_strength !== fsm.instantMap[packet.mac_address].slice(-1)[0])
                         fsm.instantMap[packet.mac_address].push(packet.signal_strength);
                 }
 
@@ -326,15 +329,33 @@ function createFsmWifi () {
                 if (fsm.allDayMap[packet.mac_address] === undefined) {
                     fsm.allDayMap[packet.mac_address] = {
                         last_seen: new Date(),
-                        signal_strengths: [packet.signal_strength],
+                        measurements:
+                        [{
+                            date: new Date(),
+                            signal_strength: packet.signal_strength
+                        }],
                         active: true
                     };
                 }
                 else {
+                    var lastMeasurement = fsm.allDayMap[packet.mac_address].measurements.slice(-1)[0];
+
+                    var isSignalStrengthDeltaEnough = packet.signal_strength - lastMeasurement.signal_strength >=
+                        ALL_DAY_SIGNAL_PRECISION;
+                    var isDateDeltaEnough = new Date().getTime() - lastMeasurement.date.getTime() >=
+                        ALL_DAY_DATE_PRECISION;
+
+
                     fsm.allDayMap[packet.mac_address].last_seen = new Date();
-                    if (packet.signal_strength !== fsm.allDayMap[packet.mac_address].signal_strengths.slice(-1)[0]) // Here too.
-                        fsm.allDayMap[packet.mac_address].signal_strengths.push(packet.mac_address);
-                }
+
+                    if (isDateDeltaEnough && isSignalStrengthDeltaEnough)
+                        fsm.allDayMap[packet.mac_address].measurements
+                        .push(
+                        {
+                            date: new Date(),
+                            signal_strength: packet.signal_strength
+                        });
+                    }
             });
 
             // measurements emitter (instant mode)
@@ -386,7 +407,7 @@ function createFsmWifi () {
 
             if (obj.active) {
                 // When it disapears for too long, make the result anonymous.
-                if (new Date().getTime() - obj.last_seen.getTime() >= MAX_LAST_SEEN) {
+                if (new Date().getTime() - obj.last_seen.getTime() >= ALL_DAY_MAX_LAST_SEEN) {
                     var random = Math.random.toString(36).slice(2);
                     fsm.allDayMap[random] = obj;
                     fsm.allDayMap[random].active = false;
@@ -394,12 +415,12 @@ function createFsmWifi () {
                 }
             }
         });
-    }, MAX_LAST_SEEN / 10); // Want more precision ? Divide by more than 10
+    }, ALL_DAY_MAX_LAST_SEEN / 10); // Want more precision ? Divide by more than 10
 
     // sending allDayMap every night.
     schedule.scheduleJob('00 00 * * *', function(){
         var trajectories = Object.keys(fsm.allDayMap).map(function (key) {
-            return fsm.allDayMap[key].signal_strengths;
+            return fsm.allDayMap[key].measurements;
         });
         fsm.emit('trajectories', trajectories);
         fsm.allDayMap = {};
