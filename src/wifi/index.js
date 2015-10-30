@@ -310,7 +310,7 @@ function createFsmWifi () {
             // packetReader listener
             fsm.packetReader.on('packet', function (packet) {
 
-                if (packet.type !== 'Beacon') {
+                if (packet.type === 'Probe Request' || packet.type === 'other') {
                     // Add to the instantMap
                     if (fsm.instantMap[packet.mac_address] === undefined) {
                         fsm.instantMap[packet.mac_address] = [packet.signal_strength];

@@ -79,13 +79,15 @@ function PacketReader(monitor_interface) {
                 type = 'Beacon';
             else if (line.match('Probe Request'))
                 type = 'Probe Request';
+            else if (line.match('Probe Response'))
+                type = 'Probe Response';
             else
                 type = 'other';
 
             match = line.match(/BSSID:(..:..:..:..:..:..)/);
             var BSSID = match ? match[1].toUpperCase() : undefined;
 
-            match = line.match(/Beacon \((.*)\)/);
+            match = line.match(/Beacon \((.*)\)/) || line.match(/Probe Response \((.*)\)/);
             var ap_name = match ? match[1] : undefined;
 
             match = line.match(/DA:(..:..:..:..:..:..)/);
