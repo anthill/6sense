@@ -73,10 +73,32 @@ function PacketReader(monitor_interface) {
             match = line.match(/(-\d{1,2})dB/);
             var signal_strength = match ? match[1] : undefined;
 
+            var type;
+
+            if (line.match('Beacon'))
+                type = 'Beacon';
+            else if (line.match('Probe Request'))
+                type = 'Probe Request';
+            else
+                type = 'other';
+
+            match = line.match(/BSSID:(..:..:..:..:..:..)/);
+            var BSSID = match ? match[1].toUpperCase() : undefined;
+
+            match = line.match(/Beacon \((.*)\)/);
+            var ap_name = match ? match[1] : undefined;
+
+            match = line.match(/DA:(..:..:..:..:..:..)/);
+            var receiver = match ? match[1].toUpperCase() : undefined;
+
             if (mac_address !== undefined && signal_strength !== undefined) {
                 self.emit('packet', {
                     mac_address: mac_address,
-                    signal_strength: parseInt(signal_strength, 10)
+                    receiver: receiver,
+                    signal_strength: parseInt(signal_strength, 10),
+                    type: type,
+                    BSSID: BSSID,
+                    ap_name: ap_name
                 });
             }
         });

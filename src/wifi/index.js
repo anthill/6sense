@@ -10,24 +10,26 @@ var schedule = require('node-schedule');
 var PacketReader = require('./packet-reader');
 
 var QUERY_TIMEOUT = 10*1000*2;
-var ALL_DAY_MAX_LAST_SEEN = 60 * 1000; // Precision : Up to +10%
+var ALL_DAY_MAX_LAST_SEEN = 5 * 60 * 1000; // Precision : Up to +10%
 var ALL_DAY_SIGNAL_PRECISION = 5; // In dB
-var ALL_DAY_DATE_PRECISION = 30 * 1000; // In seconds
+var ALL_DAY_DATE_PRECISION = 30 * 1000; // In milliseconds
 
 
 function execPromise(command, callback) {
 
     if (!callback)
-        callback = function () {
-            return true;
+        callback = function (error) {
+            return error;
         };
 
     return new Promise(function (resolve, reject) {
         exec(command, function (err, stdout, stderr) {
-            if (err)
-                reject(callback(err, stdout, stderr));
+            var result = callback(err, stdout, stderr);
+            // Swallow error if the callback returns undefined
+            if (err && result !== undefined)
+                reject(result);
             else
-                resolve(callback(err, stdout, stderr));
+                resolve(result);
         });
     });
 }
@@ -203,24 +205,19 @@ function createFsmWifi () {
             function (error, stdout, stderr) {
                 if (error) {
                     reject(stderr.toString());
-                    return false;
+                    return stderr.toString();
                 }
                 else {
                     physicalInterface = stdout.toString().replace('\n', '') || 'phy0';
                     console.log('physical interface to use :', physicalInterface);
-                    return true;
                 }
             })
             .then(function () {
             // Create a monitor interface on the physical interface
                 return execPromise('iw phy ' + physicalInterface + ' interface add ' + (myInterface || 'wlan0') + 'mon type monitor', function (error, stdout, stderr) {
                     if (error && error.code !== 233) { // Error code 233 === Already in monitor mode
-                        console.log("ERROR1 !", stderr);
-                        reject(error);
-                        return false;
-                    }
-                    else {
-                        return true;
+                        reject(stderr.toString());
+                        return stderr.toString();
                     }
                 });
             })
@@ -228,22 +225,16 @@ function createFsmWifi () {
             // Activate the monitor interface
                 return execPromise('ifconfig ' + (myInterface || 'wlan0') + 'mon up', function (error, stdout, stderr) {
                     if (error) {
-                        console.log("ERROR2 !", stderr);
-                        reject(error);
-                        return false;
-                    }
-                    else {
-                        return true;
+                        reject(stderr.toString());
+                        return stderr.toString();
                     }
                 });
             })
             .then(function () {
             // Delete the old interface
-                return execPromise('iw dev '+ (myInterface || 'wlan0') + ' del', function (error) {
-                    if (error) {
-                        console.log(error);
-                        reject(error);
-                    }
+                return execPromise('iw dev '+ (myInterface || 'wlan0') + ' del', function () {
+                    // Not an important error, swallow it.
+                    return undefined;
                 });
             })
             .then(resolve)
@@ -266,17 +257,18 @@ function createFsmWifi () {
                 function (error, stdout, stderr) {
                 if (error) {
                     reject(stderr.toString());
-                    return false;
+                    return stderr.toString();
                 }
                 else
                     physicalInterface = stdout.toString().replace('\n', '') || 'phy0';
             })
             .then(function () {
             // Re-add the initial interface
-                return execPromise('iw phy ' + physicalInterface + ' interface add ' + (myInterface || 'wlan0') + ' type managed', function (error) {
+                return execPromise('iw phy ' + physicalInterface + ' interface add ' + (myInterface || 'wlan0') + ' type managed',
+                    function (error, stdout, stderr) {
                     if (error) {
-                        console.log(error);
-                        reject(error);
+                        reject(stderr.toString());
+                        return stderr.toString();
                     }
                 });
             })
@@ -284,15 +276,17 @@ function createFsmWifi () {
             // End monitoring mode
                 return execPromise('iw dev ' + (myInterface || 'wlan0') + 'mon' + ' del', function (error, stdout, stderr) {
                     if (error) {
-                        console.log("ERROR !", stderr);
-                        reject(error);
-                        return false;
+                        reject(stderr.toString());
+                        return stderr.toString();
                     }
                 });
             })
             .then(function () {
             // Re-up the initial interface
-                return execPromise('ifconfig ' + (myInterface || 'wlan0') + ' up');
+                execPromise('ifconfig ' + (myInterface || 'wlan0') + ' up', function() {
+                    // Not an important error, swallow it.
+                    return undefined;
+                });
             })
             .then(resolve)
             .catch(function (err) {
@@ -316,46 +310,49 @@ function createFsmWifi () {
             // packetReader listener
             fsm.packetReader.on('packet', function (packet) {
 
-                // Add to the instantMap
-                if (fsm.instantMap[packet.mac_address] === undefined) {
-                    fsm.instantMap[packet.mac_address] = [packet.signal_strength];
-                }
-                else {
-                    if (packet.signal_strength !== fsm.instantMap[packet.mac_address].slice(-1)[0])
-                        fsm.instantMap[packet.mac_address].push(packet.signal_strength);
-                }
-
-                // Add to the allDayMap
-                if (fsm.allDayMap[packet.mac_address] === undefined) {
-                    fsm.allDayMap[packet.mac_address] = {
-                        last_seen: new Date(),
-                        measurements:
-                        [{
-                            date: new Date(),
-                            signal_strength: packet.signal_strength
-                        }],
-                        active: true
-                    };
-                }
-                else {
-                    var lastMeasurement = fsm.allDayMap[packet.mac_address].measurements.slice(-1)[0];
-
-                    var isSignalStrengthDeltaEnough = packet.signal_strength - lastMeasurement.signal_strength >=
-                        ALL_DAY_SIGNAL_PRECISION;
-                    var isDateDeltaEnough = new Date().getTime() - lastMeasurement.date.getTime() >=
-                        ALL_DAY_DATE_PRECISION;
-
-
-                    fsm.allDayMap[packet.mac_address].last_seen = new Date();
-
-                    if (isDateDeltaEnough && isSignalStrengthDeltaEnough)
-                        fsm.allDayMap[packet.mac_address].measurements
-                        .push(
-                        {
-                            date: new Date(),
-                            signal_strength: packet.signal_strength
-                        });
+                if (packet.type !== 'Beacon') {
+                    // Add to the instantMap
+                    if (fsm.instantMap[packet.mac_address] === undefined) {
+                        fsm.instantMap[packet.mac_address] = [packet.signal_strength];
                     }
+                    else {
+                        if (packet.signal_strength !== fsm.instantMap[packet.mac_address].slice(-1)[0])
+                            fsm.instantMap[packet.mac_address].push(packet.signal_strength);
+                    }
+
+                    // Add to the allDayMap
+                    if (fsm.allDayMap[packet.mac_address] === undefined) {
+                        fsm.allDayMap[packet.mac_address] = {
+                            last_seen: new Date(),
+                            measurements:
+                            [{
+                                date: new Date(),
+                                signal_strength: packet.signal_strength
+                            }],
+                            active: true
+                        };
+                    }
+                    else {
+                        var lastMeasurement = fsm.allDayMap[packet.mac_address].measurements.slice(-1)[0];
+
+                        var isSignalStrengthDeltaEnough = packet.signal_strength - lastMeasurement.signal_strength >=
+                            ALL_DAY_SIGNAL_PRECISION;
+                        var isDateDeltaEnough = new Date().getTime() - lastMeasurement.date.getTime() >=
+                            ALL_DAY_DATE_PRECISION;
+
+
+                        fsm.allDayMap[packet.mac_address].last_seen = new Date();
+
+                        if (isDateDeltaEnough && isSignalStrengthDeltaEnough) {
+                            fsm.allDayMap[packet.mac_address].measurements
+                            .push(
+                            {
+                                date: new Date(),
+                                signal_strength: packet.signal_strength
+                            });
+                        }
+                    }
+                }
             });
 
             // measurements emitter (instant mode)
@@ -408,7 +405,7 @@ function createFsmWifi () {
             if (obj.active) {
                 // When it disapears for too long, make the result anonymous.
                 if (new Date().getTime() - obj.last_seen.getTime() >= ALL_DAY_MAX_LAST_SEEN) {
-                    var random = Math.random.toString(36).slice(2);
+                    var random = Math.random().toString(36).slice(2);
                     fsm.allDayMap[random] = obj;
                     fsm.allDayMap[random].active = false;
                     delete fsm.allDayMap[key];
