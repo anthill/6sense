@@ -58,8 +58,6 @@ function createFsmWifi () {
             this.packetReader.on('error', function (err) {
                 console.log(err);
             });
-
-            // TODO : add listeners (end)
         },
 
         states: {
@@ -83,7 +81,7 @@ function createFsmWifi () {
                         console.log('OK all good !');
                         self.transition('monitoring');
                     })
-                    .catch(function(err){ // if error, what about deferUntilTransition ? still pending ?? -> yes
+                    .catch(function(err){
                         self.clearQueue('monitoring'); // Clear the possible deferUntilTransition event
                         console.log('err', err, err.stack);
                         console.log('Couldn\'t enter Monitor mode... Going back to sleep.');
@@ -195,9 +193,7 @@ function createFsmWifi () {
         // it is a one-shot process, that stops right after success
         return new Promise(function(resolve, reject) {
 
-            console.log(myInterface);
-
-            console.log('Activating Monitor mode... ');
+            console.log('Activating Monitor mode... interface :', myInterface);
             var physicalInterface;
 
             // Get the physical interface
