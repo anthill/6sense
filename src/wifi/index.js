@@ -14,7 +14,6 @@ var ALL_DAY_MAX_LAST_SEEN = 5 * 60 * 1000; // Precision : Up to +10%
 var ALL_DAY_SIGNAL_PRECISION = 5; // In dB
 var ALL_DAY_DATE_PRECISION = 30 * 1000; // In milliseconds
 
-
 function execPromise(command, callback) {
 
     if (!callback)
@@ -36,6 +35,8 @@ function execPromise(command, callback) {
 
 
 function createFsmWifi () {
+
+    var anonymousInterval;
 
     var fsm = new machina.Fsm({
 
@@ -185,12 +186,29 @@ function createFsmWifi () {
 
         pause: function(){
             this.handle('pause');
+        },
+
+        changeAllDayConfig: function(configObj) {
+            if (!configObj)
+                return false;
+
+            if (configObj.max_last_seen) {
+                ALL_DAY_MAX_LAST_SEEN = configObj.max_last_seen;
+
+                // Also restart anonymisation
+                if (anonymousInterval)
+                    clearInterval(anonymousInterval);
+                anonymousInterval = startAnonymisation();
+            }
+            if (configObj.signal_precision)
+                ALL_DAY_SIGNAL_PRECISION = configObj.signal_precision;
+            if (configObj.date_precision)
+                ALL_DAY_DATE_PRECISION = configObj.date_precision;
         }
     });
 
     function enterMonitorMode(myInterface) {
-        // this spawns the AIRMON-NG START process whose purpose is to set the wifi card in monitor mode
-        // it is a one-shot process, that stops right after success
+        // this spawns the iw process whose purpose is to set the wifi card in monitor mode
         return new Promise(function(resolve, reject) {
 
             console.log('Activating Monitor mode... interface :', myInterface);
@@ -215,6 +233,8 @@ function createFsmWifi () {
                         reject(stderr.toString());
                         return stderr.toString();
                     }
+                    else
+                        return undefined;
                 });
             })
             .then(function () {
@@ -366,7 +386,8 @@ function createFsmWifi () {
             }, period * 1000);
 
 
-            // on error, resolve Promise => weird, but ok
+            // the packetReader throws an error at startup. in order to say that it's recording.
+            // We listen to it and resolve when this "error" appears.
             fsm.packetReader.once('error', function(){
                 resolve();
             });
@@ -394,23 +415,27 @@ function createFsmWifi () {
     }
 
     // allDayMap anonymisation
-    setInterval(function () {
-        Object.keys(fsm.allDayMap).forEach(function (key) {
-            var obj = fsm.allDayMap[key];
+    function startAnonymisation() {
+        return setInterval(function () {
+            Object.keys(fsm.allDayMap).forEach(function (key) {
+                var obj = fsm.allDayMap[key];
 
-            if (obj.active) {
-                // When it disapears for too long, make the result anonymous.
-                if (new Date().getTime() - obj.last_seen.getTime() >= ALL_DAY_MAX_LAST_SEEN) {
-                    var random = Math.random().toString(36).slice(2);
-                    fsm.allDayMap[random] = obj;
-                    fsm.allDayMap[random].active = false;
-                    delete fsm.allDayMap[key];
+                if (obj.active) {
+                    // When it disapears for too long, make the result anonymous.
+                    if (new Date().getTime() - obj.last_seen.getTime() >= ALL_DAY_MAX_LAST_SEEN) {
+                        var random = Math.random().toString(36).slice(2);
+                        fsm.allDayMap[random] = obj;
+                        fsm.allDayMap[random].active = false;
+                        delete fsm.allDayMap[key];
+                    }
                 }
-            }
-        });
-    }, ALL_DAY_MAX_LAST_SEEN / 10); // Want more precision ? Divide by more than 10
+            });
+        }, ALL_DAY_MAX_LAST_SEEN / 10); // Want more precision ? Divide by more than 10
+    }
 
-    // sending allDayMap every night.
+    anonymousInterval = startAnonymisation();
+
+    // sending allDayMap measurements every night.
     schedule.scheduleJob('00 00 * * *', function(){
         var trajectories = Object.keys(fsm.allDayMap).map(function (key) {
             return fsm.allDayMap[key].measurements;

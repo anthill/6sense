@@ -14,7 +14,13 @@ npm install 6sense
 
 ### wifi specific
 
-The prerequisit is to have [airodump-ng](http://www.aircrack-ng.org/install.html) installed on your system. You also need a wifi device with monitoring capability.
+The prerequisit is to have
+
+* [iw](http://wireless.kernel.org/en/users/Documentation/iw)
+
+* [tcpdump](http://www.tcpdump.org/)
+
+* A wifi interface with monitoring capability.
 
 ### bluetooth specific
 
@@ -44,11 +50,16 @@ dongle.on('processed', function(result){
 
 Here are the main functions:
 
-```
+```js
 dongle.wakeUp()  // from 'sleeping' to 'monitoring'
 dongle.sleep();  // from 'monitoring' or 'recording' back to 'sleeping'
 dongle.record(300); // from 'sleeping' or 'monitoring' to 'recording'
 dongle.pause();  // from 'recording' to 'monitoring'
+dongle.changeAllDayConfig({
+	max_last_seen: 5 * 60 * 1000, // ms
+	signal_precision: 5, // dB
+	date_precision: 30 * 1000 // ms
+}); // Change the config for the all-day measurement map
 ```
 
 ### bluetooth specific
@@ -68,7 +79,7 @@ dongle.on('processed', function(result) {
 
 Here are the main functions:
 
-```
+```js
 dongle.initialize() // from 'uninitialized' to 'initialized' (it's started automatically)
 dongle.record(300) // from 'initialized' to 'recording'
 dongle.pause() // from 'recording' to 'initialized'
