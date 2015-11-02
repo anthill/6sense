@@ -4,32 +4,61 @@ require('es6-shim');
 var fs = require('fs');
 var machina = require('machina');
 var spawn = require('child_process').spawn;
+var exec = require('child_process').exec; // Use exec only for little commands
+var schedule = require('node-schedule');
 
-var parser = require('./parseOutput.js').parser;
-var emitter = require('./parseOutput.js').emitter;
+var PacketReader = require('./packet-reader');
 
 var QUERY_TIMEOUT = 10*1000*2;
+var ALL_DAY_MAX_LAST_SEEN = 5 * 60 * 1000; // Precision : Up to +10%
+var ALL_DAY_SIGNAL_PRECISION = 5; // In dB
+var ALL_DAY_DATE_PRECISION = 30 * 1000; // In milliseconds
+
+function execPromise(command, callback) {
+
+    if (!callback)
+        callback = function (error) {
+            return error;
+        };
+
+    return new Promise(function (resolve, reject) {
+        exec(command, function (err, stdout, stderr) {
+            var result = callback(err, stdout, stderr);
+            // Swallow error if the callback returns undefined
+            if (err && result !== undefined)
+                reject(result);
+            else
+                resolve(result);
+        });
+    });
+}
 
 
 function createFsmWifi () {
+
+    var anonymousInterval;
 
     var fsm = new machina.Fsm({
 
         initialState: "sleeping",
 
         myInterface: 'wlan0',
-        process: null,
-        file: null,
-        watcher: null,
-        interval: null,
+        recordInterval: null,
+        instantMap: {},
+        allDayMap: {},
+        packetReader: null,
 
         initialize: function(){
-            try{
-                spawn("airmon-ng", ["stop", this.myInterface + "mon"]);
-            } catch(err){
-                console.log('err', err, err.stack);
-                console.log('Initialize: Couldn\'t spawn airmon-ng');
+            if (this.packetReader) {
+                this.sleep();
+                this.packetReader.stop();
             }
+
+            this.packetReader = new PacketReader(this.myInterface + 'mon');
+
+            this.packetReader.on('error', function (err) {
+                console.log(err);
+            });
         },
 
         states: {
@@ -53,15 +82,16 @@ function createFsmWifi () {
                         console.log('OK all good !');
                         self.transition('monitoring');
                     })
-                    .catch(function(err){ // if error, what about deferUntilTransition ? still pending ??
+                    .catch(function(err){
+                        self.clearQueue('monitoring'); // Clear the possible deferUntilTransition event
                         console.log('err', err, err.stack);
                         console.log('Couldn\'t enter Monitor mode... Going back to sleep.');
-                        exitMonitorMode();
+                        exitMonitorMode(self.myInterface);
                     });
                 },
 
-                record: function(options){
-                    this.deferUntilTransition(options);
+                record: function(period){
+                    this.deferUntilTransition('monitoring');
                     this.handle('wakeUp');
                 },
 
@@ -83,7 +113,6 @@ function createFsmWifi () {
                     exitMonitorMode(self.myInterface)
                     .then(function(){
                         console.log('Monitor mode deactivated');
-                        self.myInterface = null;
                         self.transition('sleeping');
                     })
                     .catch(function(err){
@@ -92,17 +121,11 @@ function createFsmWifi () {
                     });
                 },
 
-                record: function(options){
+                record: function(period){
                     var self = this;
 
-                    options.interface = this.myInterface;
-
-                    this.interval = options['--write-interval'];
-
-                    startRecording(options)
-                    .then(function(results){
-                        self.file = results.file;
-                        self.process = results.airodumpProcess;
+                    startRecording(period)
+                    .then(function(){
                         self.transition('recording');
                     })
                     .catch(function(err){
@@ -121,72 +144,29 @@ function createFsmWifi () {
                 _onEnter: function(){
                     var self = this;
                     console.log('************** ' + this.state + ' **************');
-                    try {
-                        fs.unlinkSync("./report-01.csv");
-                    } catch(err) {
-                        console.log('err', err, err.stack);
-                        console.log('Couldn\'t unlink report file');
-                    }
-                    console.log('Checking ',  this.file);
-                    console.log('interval ',  this.interval);
-
-                    if (this.file){
-                        console.log('Watching ' + this.file);
-
-                        emitter.on('parseProcessed', function(results){
-                            self.emit('processed', results);
-                        });
-
-                        setTimeout(function(){ // smoothing timings
-                            self.watcher = fs.watch(self.file, function(){
-                                parser(self.file, self.interval);
-                            });
-                        }, 1000);
-                    }
-                    else{
-                        console.log('Couldn\'t find the file to be watched');
-                        self.transition('monitoring');
-                    }
-
                 },
 
                 tryToSleep: function(){
-                    this.deferUntilTransition();
+                    this.deferUntilTransition('monitoring');
                     this.handle('pause');
                 },
 
                 pause: function(){
                     var self = this;
 
-                    console.log('pausing', this.process.pid);
-                    emitter.removeAllListeners('parseProcessed'); // In order to send only one event 'processed'
+                    console.log('pausing');
                     stopRecording(this.process)
                     .then(function(){
-                        console.log('Stopping the file watch');
-                        self.watcher.close();
                         self.transition('monitoring');
                     })
                     .catch(function(err){
+                        self.clearQueue('monitoring'); // Clear the possible deferUntilTransition event
                         console.log('err', err, err.stack);
                         console.log('Couldn\'t exit Recording mode, still monitoring');
                     });
                 },
 
                 _onExit: function(){
-                    emitter.removeAllListeners('results');
-
-                    setTimeout(function(){ // smoothing timings
-                        try {
-                            fs.unlinkSync("./report-01.csv");
-                        } catch(err) {
-                            console.log('err', err, err.stack);
-                            console.log('Couldn\'t unlink report file');
-                        }
-                        this.file = null;
-                        this.processes = null;
-                        this.watcher = null;
-                        this.interval = null;
-                    }, 500);
                     console.log('Exiting recording state');
                 }
             }
@@ -200,163 +180,271 @@ function createFsmWifi () {
             this.handle('tryToSleep');
         },
 
-        // This is in case you need to call RECORD with arguments. Not using it since it's not practical
-
-        /*record: function(format, refreshTime, path, myInterface){
-
-            var options = {
-                '--output-format': format,
-                '--write-interval': refreshTime,
-                '--write': path,
-                'interface': myInterface
-            };
-        */
-
-        record: function(interval){
-
-            var options = {
-                '--output-format': 'csv',
-                '--write-interval': interval,
-                '--write': './'
-            };
-
-            this.handle('record', options);
+        record: function(period){
+            this.handle('record', period);
         },
 
         pause: function(){
             this.handle('pause');
+        },
+
+        changeAllDayConfig: function(configObj) {
+            if (!configObj)
+                return false;
+
+            if (configObj.max_last_seen) {
+                ALL_DAY_MAX_LAST_SEEN = configObj.max_last_seen;
+
+                // Also restart anonymisation
+                if (anonymousInterval)
+                    clearInterval(anonymousInterval);
+                anonymousInterval = startAnonymisation();
+            }
+            if (configObj.signal_precision)
+                ALL_DAY_SIGNAL_PRECISION = configObj.signal_precision;
+            if (configObj.date_precision)
+                ALL_DAY_DATE_PRECISION = configObj.date_precision;
         }
     });
 
-    function enterMonitorMode(myInterface){
-        // this spawns the AIRMON-NG START process whose purpose is to set the wifi card in monitor mode
-        // it is a one-shot process, that stops right after success
-        return new Promise(function(resolve, reject){
-            console.log('Activating Monitor mode... ' + myInterface);
-            var myProcess = spawn("airmon-ng", ["start", myInterface]);
-            var timeout;
+    function enterMonitorMode(myInterface) {
+        // this spawns the iw process whose purpose is to set the wifi card in monitor mode
+        return new Promise(function(resolve, reject) {
 
-            // on success, resolve Promise
-            myProcess.stdout.on("data", function(chunkBuffer){
-                // check chunk buffer for final line output and then enter
-                var message = chunkBuffer.toString();
-                if (message.match(/monitor mode vif enabled/)) {
-                    if (timeout)
-                        clearTimeout(timeout);
-                    resolve(myProcess.pid);
+            console.log('Activating Monitor mode... interface :', myInterface);
+            var physicalInterface;
+
+            // Get the physical interface
+            return execPromise('((iw dev | head -n 1 | sed s/#// | grep phy) || (iw phy | head -n 1 | sed "s/Wiphy //" | grep phy))',
+            function (error, stdout, stderr) {
+                if (error) {
+                    reject(stderr.toString());
+                    return stderr.toString();
+                }
+                else {
+                    physicalInterface = stdout.toString().replace('\n', '') || 'phy0';
+                    console.log('physical interface to use :', physicalInterface);
+                }
+            })
+            .then(function () {
+            // Create a monitor interface on the physical interface
+                return execPromise('iw phy ' + physicalInterface + ' interface add ' + (myInterface || 'wlan0') + 'mon type monitor', function (error, stdout, stderr) {
+                    if (error && error.code !== 233) { // Error code 233 === Already in monitor mode
+                        reject(stderr.toString());
+                        return stderr.toString();
+                    }
+                    else
+                        return undefined;
+                });
+            })
+            .then(function () {
+            // Activate the monitor interface
+                return execPromise('ifconfig ' + (myInterface || 'wlan0') + 'mon up', function (error, stdout, stderr) {
+                    if (error) {
+                        reject(stderr.toString());
+                        return stderr.toString();
+                    }
+                });
+            })
+            .then(function () {
+            // Delete the old interface
+                return execPromise('iw dev '+ (myInterface || 'wlan0') + ' del', function () {
+                    // Not an important error, swallow it.
+                    return undefined;
+                });
+            })
+            .then(resolve)
+            .catch(function (err) {
+                console.log('error while entering monitor mode :', err);
+                reject(err);
+            });
+        });
+    }
+
+    function exitMonitorMode(myInterface) {
+
+        return new Promise(function(resolve, reject){
+            console.log("Deactivating Monitor mode... " + myInterface);
+
+            var physicalInterface = 'phy0';
+
+            // Get the physical interface
+            return execPromise('((iw dev | head -n 1 | sed s/#// | grep phy) || (iw phy | head -n 1 | sed "s/Wiphy //" | grep phy))',
+                function (error, stdout, stderr) {
+                if (error) {
+                    reject(stderr.toString());
+                    return stderr.toString();
+                }
+                else
+                    physicalInterface = stdout.toString().replace('\n', '') || 'phy0';
+            })
+            .then(function () {
+            // Re-add the initial interface
+                return execPromise('iw phy ' + physicalInterface + ' interface add ' + (myInterface || 'wlan0') + ' type managed',
+                    function (error, stdout, stderr) {
+                    if (error) {
+                        reject(stderr.toString());
+                        return stderr.toString();
+                    }
+                });
+            })
+            .then(function () {
+            // End monitoring mode
+                return execPromise('iw dev ' + (myInterface || 'wlan0') + 'mon' + ' del', function (error, stdout, stderr) {
+                    if (error) {
+                        reject(stderr.toString());
+                        return stderr.toString();
+                    }
+                });
+            })
+            .then(function () {
+            // Re-up the initial interface
+                execPromise('ifconfig ' + (myInterface || 'wlan0') + ' up', function() {
+                    // Not an important error, swallow it.
+                    return undefined;
+                });
+            })
+            .then(resolve)
+            .catch(function (err) {
+                console.log('error while exiting monitor mode :', err);
+                reject(err);
+            });
+
+        });
+    }
+
+
+
+    function startRecording(period){
+        console.log('Starting recording process...');
+
+        // start recording
+        return new Promise(function(resolve, reject) {
+
+            fsm.packetReader.start(fsm.myInterface + 'mon');
+
+            // packetReader listener
+            fsm.packetReader.on('packet', function (packet) {
+
+                if (packet.type === 'Probe Request' || packet.type === 'other') {
+                    // Add to the instantMap
+                    if (fsm.instantMap[packet.mac_address] === undefined) {
+                        fsm.instantMap[packet.mac_address] = [packet.signal_strength];
+                    }
+                    else {
+                        if (packet.signal_strength !== fsm.instantMap[packet.mac_address].slice(-1)[0])
+                            fsm.instantMap[packet.mac_address].push(packet.signal_strength);
+                    }
+
+                    // Add to the allDayMap
+                    if (fsm.allDayMap[packet.mac_address] === undefined) {
+                        fsm.allDayMap[packet.mac_address] = {
+                            last_seen: new Date(),
+                            measurements:
+                            [{
+                                date: new Date(),
+                                signal_strength: packet.signal_strength
+                            }],
+                            active: true
+                        };
+                    }
+                    else {
+                        var lastMeasurement = fsm.allDayMap[packet.mac_address].measurements.slice(-1)[0];
+
+                        var isSignalStrengthDeltaEnough = packet.signal_strength - lastMeasurement.signal_strength >=
+                            ALL_DAY_SIGNAL_PRECISION;
+                        var isDateDeltaEnough = new Date().getTime() - lastMeasurement.date.getTime() >=
+                            ALL_DAY_DATE_PRECISION;
+
+
+                        fsm.allDayMap[packet.mac_address].last_seen = new Date();
+
+                        if (isDateDeltaEnough && isSignalStrengthDeltaEnough) {
+                            fsm.allDayMap[packet.mac_address].measurements
+                            .push(
+                            {
+                                date: new Date(),
+                                signal_strength: packet.signal_strength
+                            });
+                        }
+                    }
                 }
             });
 
-            // on error, reject Promise
-            myProcess.stderr.on("data", function(chunkBuffer){
-                var message = chunkBuffer.toString();
-                console.log("Error => " + message);
-                fsm.emit('monitorError', message);
-                reject(new Error("Entering monitor mode => " + message));
-            });
-
-            // on timeout, reject Promise
-            timeout = setTimeout(function(){
-                fsm.emit('monitorError', 'timeout');
-                reject(new Error("Entering monitor mode => Timeout"));
-            }, QUERY_TIMEOUT);
-        });
-    }
-
-    function exitMonitorMode(myInterface){
-        // this spawns the AIRMON-NG STOP process, whose purpose is to set the wifi card in normal mode
-        // it is a one-shot process, that stops right after success
-        return new Promise(function(resolve, reject){
-            console.log("Deactivating Monitor mode... " + myInterface);
-            var myProcess = spawn("airmon-ng", ["stop", myInterface + "mon"]);
-
-            // on success, resolve Promise
-            myProcess.stdout.on("data", function(chunkBuffer){
-                var message = chunkBuffer.toString();
-                // console.log("Data => " + message);
-                if (message.match(/monitor mode vif disabled/))
-                    resolve(myProcess.pid);
-            });
-
-            // on error, reject Promise
-            myProcess.stderr.on("data", function(chunkBuffer){
-                var message = chunkBuffer.toString();
-                console.log("Error => " + message);
-                reject(new Error("Exiting monitor mode => " + message));
-            });
-
-            // on timeout, reject Promise
-            setTimeout(function(){
-                reject(new Error("Exiting monitor mode => Timeout"));
-            }, QUERY_TIMEOUT);
-        });
-    }
-
-
-
-    function startRecording(optObj){
-        /*
-            This starts a recording process which is composed of two steps:
-            1°) spawns AIRODUMP-NG with optObj options. This will write a dump file reporting devices that are trying to access wifi
-            2°) spawns a node process that watches the dump file and formats it into a correct output.
-            Both will need to be killed.
-        */
-
-        console.log('Starting recording process...');
-
-        optObj['--write'] += 'report'; // path to airodump output file
-        var file = optObj['--write'] + '-01.csv'; // path to airodump output file
-        var options = [];
-
-        for (var field in optObj){
-            if (field !== 'interface'){
-                options.push(field);
-                options.push(optObj[field]);
-            } else
-                options.push(optObj[field] + 'mon');
-        }
-
-        console.log('options list', options);
-
-        // spawning airodump process
-        return new Promise(function(resolve, reject){
-            console.log('Starting airodump process');
-            var airodumpProcess = spawn("airodump-ng", options);
-            console.log("airodumpProcess: ", airodumpProcess.pid);
-
-            // on error, resolve Promise => weird, but ok
-            airodumpProcess.stderr.on("data", function(){
-                resolve({
-                    file: file,
-                    airodumpProcess: airodumpProcess
+            // measurements emitter (instant mode)
+            fsm.recordInterval = setInterval(function () {
+                var signal_strengths = Object.keys(fsm.instantMap).map(function (key) {
+                    return Math.round(fsm.instantMap[key]
+                    .reduce(function(sum, a) {
+                        return sum + a;
+                    }, 0) / (fsm.instantMap[key].length || 1));
                 });
+
+                fsm.emit('processed', signal_strengths);
+                fsm.instantMap = {};
+
+            }, period * 1000);
+
+
+            // the packetReader throws an error at startup. in order to say that it's recording.
+            // We listen to it and resolve when this "error" appears.
+            fsm.packetReader.once('error', function(){
+                resolve();
             });
 
             // on timeout, reject Promise
             setTimeout(function(){
                 fsm.emit('recordError', 'timeout');
-                reject(new Error("airodump Error => Timeout"));
+                reject(new Error("Timeout"));
             }, QUERY_TIMEOUT);
         });
     }
 
     function stopRecording(process){
+        console.log('Stopping recording...');
 
-        console.log('Stopping process...');
+        return new Promise(function(resolve) {
 
-        return new Promise(function(resolve, reject){
-            console.log('killing process id', process.pid);
-            process.kill();
-            process.on('error', reject);
-            process.on('exit', function(code){
-                console.log('Process killed');
-                resolve(code);
-            });
+            if (fsm.recordInterval)
+                clearInterval(fsm.recordInterval);
+
+            fsm.packetReader.removeAllListeners('packet');
+            fsm.packetReader.stop();
+            resolve();
         });
     }
 
+    // allDayMap anonymisation
+    function startAnonymisation() {
+        return setInterval(function () {
+            Object.keys(fsm.allDayMap).forEach(function (key) {
+                var obj = fsm.allDayMap[key];
+
+                if (obj.active) {
+                    // When it disapears for too long, make the result anonymous.
+                    if (new Date().getTime() - obj.last_seen.getTime() >= ALL_DAY_MAX_LAST_SEEN) {
+                        var random = Math.random().toString(36).slice(2);
+                        fsm.allDayMap[random] = obj;
+                        fsm.allDayMap[random].active = false;
+                        delete fsm.allDayMap[key];
+                    }
+                }
+            });
+        }, ALL_DAY_MAX_LAST_SEEN / 10); // Want more precision ? Divide by more than 10
+    }
+
+    anonymousInterval = startAnonymisation();
+
+    // sending allDayMap measurements every night.
+    schedule.scheduleJob('00 00 * * *', function(){
+        var trajectories = Object.keys(fsm.allDayMap).map(function (key) {
+            return fsm.allDayMap[key].measurements;
+        });
+        fsm.emit('trajectories', trajectories);
+        fsm.allDayMap = {};
+    });
+
     return fsm;
 }
-
 
 module.exports = createFsmWifi;
