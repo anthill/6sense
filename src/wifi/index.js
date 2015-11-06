@@ -373,6 +373,7 @@ function createFsmWifi () {
 
             // measurements emitter (instant mode)
             fsm.recordInterval = setInterval(function () {
+                // make the average of signal strengths
                 var signal_strengths = Object.keys(fsm.instantMap).map(function (key) {
                     return Math.round(fsm.instantMap[key]
                     .reduce(function(sum, a) {
@@ -380,7 +381,18 @@ function createFsmWifi () {
                     }, 0) / (fsm.instantMap[key].length || 1));
                 });
 
-                fsm.emit('processed', signal_strengths);
+                // Create an object with the good format
+                var toSend = {};
+                toSend.date = new Date();
+                toSend.devices = signal_strengths.map(function (signal) {
+                    return {
+                        signal_strength: signal
+                    };
+                });
+
+                // Send the object
+                console.log('processing with instant mode');
+                fsm.emit('processed', toSend);
                 fsm.instantMap = {};
 
             }, period * 1000);
