@@ -23,19 +23,21 @@ module.exports = {
         now = moment.tz(now, 'GMT');
         now.tz('Europe/Paris');
 
-        // assign a power level list to each date
-        var deviceLevels = [];
+        // Assign a Power level and an ID to each device
+        var devices = [];
 
-        deviceMap.forEach(function(device){
-            // console.log('dif', now.format() - Date.parse(device["Last time seen"]));
+        deviceMap.forEach(function (device) {
+            if (now - Date.parse(device["Last time seen"]) < interval * 1000) {
+                devices.push({
+                    signal_strength: device.Power
+                });
 
-            if (now - Date.parse(device["Last time seen"]) < interval * 1000)
-                deviceLevels.push(device.Power);
+            }
         });
 
         return {
             date: now.format(),
-            signal_strengths: deviceLevels
+            devices: devices
         };
     },
 
