@@ -38,6 +38,8 @@ function createFsmWifi () {
 
     var anonymousInterval;
 
+    var trajectoriesSendJob;
+
     var fsm = new machina.Fsm({
 
         initialState: "sleeping",
@@ -204,6 +206,18 @@ function createFsmWifi () {
                 ALL_DAY_SIGNAL_PRECISION = configObj.signal_precision;
             if (configObj.date_precision)
                 ALL_DAY_DATE_PRECISION = configObj.date_precision;
+        },
+
+        restartTrajectoriesSendJob: function() {
+            if (!trajectoriesSendJob)
+                trajectoriesSendJob = startTrajectoriesSendJob();
+            return trajectoriesSendJob;
+        },
+
+        stopTrajectoriesSendJob: function() {
+            if (trajectoriesSendJob)
+                trajectoriesSendJob.cancel();
+            trajectoriesSendJob = undefined;
         }
     });
 
@@ -447,14 +461,20 @@ function createFsmWifi () {
 
     anonymousInterval = startAnonymisation();
 
-    // sending allDayMap measurements every night.
-    schedule.scheduleJob('00 00 * * *', function(){
-        var trajectories = Object.keys(fsm.allDayMap).map(function (key) {
-            return fsm.allDayMap[key].measurements;
+    function startTrajectoriesSendJob() {
+        return schedule.scheduleJob('00 00 * * *', function(){
+
+            var trajectories = Object.keys(fsm.allDayMap).map(function (key) {
+                return fsm.allDayMap[key].measurements;
+            });
+
+            fsm.emit('trajectories', trajectories);
+            fsm.allDayMap = {};
         });
-        fsm.emit('trajectories', trajectories);
-        fsm.allDayMap = {};
-    });
+    }
+
+    // sending allDayMap measurements every night.
+    trajectoriesSendJob = startTrajectoriesSendJob();
 
     return fsm;
 }
