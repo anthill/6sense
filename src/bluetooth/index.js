@@ -13,6 +13,19 @@ var createFsmBluetooth = function () {
         console.log('NOBLE WARNING:', m);
     });
 
+    noble.on('stateChange', function (state) {
+        if (state === 'poweredOff') {
+            console.log('bluetooth dongle hanged up');
+
+            if (fsm.recordInterval) {
+                // Stop record
+                clearInterval(fsm.recordInterval);
+                fsm.recordInterval = undefined;
+                fsm.transition('uninitialized');
+            }
+        }
+    });
+
     var fsm = new machina.Fsm({
         initialState: "uninitialized",
 
@@ -32,14 +45,12 @@ var createFsmBluetooth = function () {
         initialize: function() {
             var self = this;
 
-            console.log('initializing the bluetooth dongle', noble.state);
-
             exec('/bin/sh ' + path.resolve(__dirname, BLUETOOTH_SCRIPT), function (err) {
                 if (err)
                     console.log('Error in exec :', err);
             });
 
-            noble.on('stateChange', function(state) {
+            noble.once('stateChange', function(state) {
 
                 if (state === 'poweredOn') {
                     self.transition('initialized');
@@ -114,7 +125,7 @@ var createFsmBluetooth = function () {
                             clearInterval(self.recordInterval);
                         self.recordInterval = null;
 
-                        self.transition('initialized');
+                        self.transition('uninitialized');
                     }, 10000);
 
                     noble.stopScanning();
