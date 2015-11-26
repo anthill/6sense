@@ -7,7 +7,7 @@ var util = require('util');
 var EventEmitter = require('events').EventEmitter;
 
 
-function PacketReader(monitor_interface) {
+function PacketReader() {
     var self = this;
     EventEmitter.call(this);
 
@@ -33,14 +33,14 @@ function PacketReader(monitor_interface) {
     };
 
 
-    this.start = function () {
+    this.start = function (monitor_interface) {
 
         if (tcpdumpProcess || readliner || errorReader) { // if already started
             self.emit('error', "PacketReader already started");
             return;
         }
         // start tcpdump
-        tcpdumpProcess = spawn('tcpdump', ['-I', '-e', '-q', '-t', '-U', '-i', monitor_interface || 'wlan0mon']);
+        tcpdumpProcess = spawn('tcpdump', ['-I', '-e', '-q', '-t', '-U', '-i', monitor_interface]);
 
         readliner = readline.createInterface({
             input: tcpdumpProcess.stdout,

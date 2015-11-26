@@ -54,7 +54,7 @@ function createFsmWifi () {
                 this.packetReader.stop();
             }
 
-            this.packetReader = new PacketReader(this.myInterface + 'mon');
+            this.packetReader = new PacketReader();
 
             this.packetReader.on('error', function (err) {
                 console.log(err);
@@ -65,7 +65,7 @@ function createFsmWifi () {
             "sleeping": {
 
                 _onEnter: function() {
-                    console.log('ZZZzzzZZZzzz... ', this.state, ' ...ZZZzzzZZZzzz');
+                    console.log('============== ' + this.state + ' ==============');
                 },
 
                 changeInterface: function(newInterface) {
@@ -79,7 +79,6 @@ function createFsmWifi () {
 
                     enterMonitorMode(this.myInterface)
                     .then(function(){
-                        console.log('OK all good !');
                         self.transition('monitoring');
                     })
                     .catch(function(err){
@@ -142,7 +141,8 @@ function createFsmWifi () {
             "recording": {
 
                 _onEnter: function(){
-                    console.log('************** ' + this.state + ' **************');
+
+                    console.log('============== ' + this.state + ' ==============');
                 },
 
                 tryToSleep: function(){
@@ -233,13 +233,15 @@ function createFsmWifi () {
                     return stderr.toString();
                 }
                 else {
-                    physicalInterface = stdout.toString().replace('\n', '') || 'phy0';
+                    physicalInterface = stdout.toString().replace('\n', '');
                     console.log('physical interface to use :', physicalInterface);
+                    if (!physicalInterface)
+                        reject("Invalid interface");
                 }
             })
             .then(function () {
             // Create a monitor interface on the physical interface
-                return execPromise('iw phy ' + physicalInterface + ' interface add ' + (myInterface || 'wlan0') + 'mon type monitor', function (error, stdout, stderr) {
+                return execPromise('iw phy ' + physicalInterface + ' interface add ' + myInterface + 'mon type monitor', function (error, stdout, stderr) {
                     if (error && error.code !== 233) { // Error code 233 === Already in monitor mode
                         reject(stderr.toString());
                         return stderr.toString();
@@ -250,7 +252,7 @@ function createFsmWifi () {
             })
             .then(function () {
             // Activate the monitor interface
-                return execPromise('ifconfig ' + (myInterface || 'wlan0') + 'mon up', function (error, stdout, stderr) {
+                return execPromise('ifconfig ' + myInterface + 'mon up', function (error, stdout, stderr) {
                     if (error) {
                         reject(stderr.toString());
                         return stderr.toString();
@@ -259,7 +261,7 @@ function createFsmWifi () {
             })
             .then(function () {
             // Delete the old interface
-                return execPromise('iw dev '+ (myInterface || 'wlan0') + ' del', function () {
+                return execPromise('iw dev '+ myInterface + ' del', function () {
                     // Not an important error, swallow it.
                     return undefined;
                 });
@@ -286,12 +288,15 @@ function createFsmWifi () {
                     reject(stderr.toString());
                     return stderr.toString();
                 }
-                else
-                    physicalInterface = stdout.toString().replace('\n', '') || 'phy0';
+                else {
+                    physicalInterface = stdout.toString().replace('\n', '');
+                    if (!physicalInterface)
+                        reject("Invalid interface");
+                }
             })
             .then(function () {
             // Re-add the initial interface
-                return execPromise('iw phy ' + physicalInterface + ' interface add ' + (myInterface || 'wlan0') + ' type managed',
+                return execPromise('iw phy ' + physicalInterface + ' interface add ' + myInterface + ' type managed',
                     function (error, stdout, stderr) {
                     if (error) {
                         reject(stderr.toString());
@@ -301,7 +306,7 @@ function createFsmWifi () {
             })
             .then(function () {
             // End monitoring mode
-                return execPromise('iw dev ' + (myInterface || 'wlan0') + 'mon' + ' del', function (error, stdout, stderr) {
+                return execPromise('iw dev ' + myInterface + 'mon' + ' del', function (error, stdout, stderr) {
                     if (error) {
                         reject(stderr.toString());
                         return stderr.toString();
@@ -310,7 +315,7 @@ function createFsmWifi () {
             })
             .then(function () {
             // Re-up the initial interface
-                execPromise('ifconfig ' + (myInterface || 'wlan0') + ' up', function() {
+                execPromise('ifconfig ' + myInterface + ' up', function() {
                     // Not an important error, swallow it.
                     return undefined;
                 });
@@ -402,7 +407,6 @@ function createFsmWifi () {
                 });
 
                 // Send the object
-                console.log('processing with instant mode');
                 fsm.emit('processed', toSend);
                 fsm.instantMap = {};
 

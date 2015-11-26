@@ -46,6 +46,10 @@ dongle.record(60);
 dongle.on('processed', function(result){
 	console.log(JSON.stringify(result));
 });
+
+dongle.on('trajectories', function(result){
+	console.log(JSON.stringify(result));
+});
 ```
 
 Here are the main functions:
