@@ -8,6 +8,24 @@ var path = require('path');
 var BLUETOOTH_SCRIPT = './initBluetooth.sh';
 
 var createFsmBluetooth = function () {
+
+    noble.on('warning', function (m) {
+        console.log('NOBLE WARNING:', m);
+    });
+
+    noble.on('stateChange', function (state) {
+        if (state === 'poweredOff') {
+            console.log('bluetooth dongle hanged up');
+
+            if (fsm.recordInterval) {
+                // Stop record
+                clearInterval(fsm.recordInterval);
+                fsm.recordInterval = undefined;
+                fsm.transition('uninitialized');
+            }
+        }
+    });
+
     var fsm = new machina.Fsm({
         initialState: "uninitialized",
 
@@ -32,7 +50,8 @@ var createFsmBluetooth = function () {
                     console.log('Error in exec :', err);
             });
 
-            noble.on('stateChange', function(state) {
+            noble.once('stateChange', function(state) {
+
                 if (state === 'poweredOn') {
                     self.transition('initialized');
                 }
@@ -49,7 +68,7 @@ var createFsmBluetooth = function () {
                 },
 
                 record: function(_period){
-                    this.deferUntilTransition(_period);
+                    this.deferUntilTransition(_period, 'initialized');
                     this.initialize();
                 }
             },
@@ -63,14 +82,24 @@ var createFsmBluetooth = function () {
                     var self = this;
                     if (_period)
                         self.period = _period;
-                    noble.startScanning([], true);
 
-                    noble.on('scanStart', function() {
+                    noble.once('scanStart', function() {
                         if (self.recordInterval)
                             clearInterval(self.recordInterval);
                         self.recordInterval = setInterval(self.sendMeasurement, self.period * 1000);
                         self.transition('recording');
                     });
+
+                    try {
+                        noble.startScanning([], true);
+                    }
+                    catch (err) {
+                        console.log('Error while starting bluetooth :', err);
+
+                        // Try to re-initialize the FSM
+                        self.deferUntilTransition(_period, 'initialized');
+                        self.initialize();
+                    }
                 }
             },
 
@@ -81,13 +110,25 @@ var createFsmBluetooth = function () {
 
                 stopRecording: function() {
                     var self = this;
-                    noble.stopScanning();
-                    noble.on('scanStop', function() {
-                        clearInterval(self.recordInterval);
+
+                    noble.once('scanStop', function() {
+                        if (self.recordInterval)
+                            clearInterval(self.recordInterval);
                         self.recordInterval = null;
 
                         self.transition('initialized');
                     });
+
+                    // If no response in 10s, stop it.
+                    setTimeout(function () {
+                        if (self.recordInterval)
+                            clearInterval(self.recordInterval);
+                        self.recordInterval = null;
+
+                        self.transition('uninitialized');
+                    }, 10000);
+
+                    noble.stopScanning();
                 }
             }
         },
