@@ -10,9 +10,7 @@ var schedule = require('node-schedule');
 var PacketReader = require('./packet-reader');
 
 var QUERY_TIMEOUT = 10*1000*2;
-var ALL_DAY_MAX_LAST_SEEN = 5 * 60 * 1000; // Precision : Up to +10%
-var ALL_DAY_SIGNAL_PRECISION = 5; // In dB
-var ALL_DAY_DATE_PRECISION = 30 * 1000; // In milliseconds
+var OUT_OF_SIGHT_TIMOUT = 5 * 60 * 1000; // Precision : Up to +10%
 
 function execPromise(command, callback) {
 
@@ -193,17 +191,13 @@ function createFsmWifi () {
                 return false;
 
             if (configObj.max_last_seen) {
-                ALL_DAY_MAX_LAST_SEEN = configObj.max_last_seen;
+                OUT_OF_SIGHT_TIMOUT = configObj.max_last_seen;
 
                 // Also restart anonymisation
                 if (anonymousInterval)
                     clearInterval(anonymousInterval);
                 anonymousInterval = startAnonymisation();
             }
-            if (configObj.signal_precision)
-                ALL_DAY_SIGNAL_PRECISION = configObj.signal_precision;
-            if (configObj.date_precision)
-                ALL_DAY_DATE_PRECISION = configObj.date_precision;
         },
 
         restartTrajectoriesSendJob: function() {
@@ -368,22 +362,14 @@ function createFsmWifi () {
                     else {
                         var lastMeasurement = fsm.allDayMap[packet.mac_address].measurements.slice(-1)[0];
 
-                        var isSignalStrengthDeltaEnough = packet.signal_strength - lastMeasurement.signal_strength >=
-                            ALL_DAY_SIGNAL_PRECISION;
-                        var isDateDeltaEnough = new Date().getTime() - lastMeasurement.date.getTime() >=
-                            ALL_DAY_DATE_PRECISION;
-
-
                         fsm.allDayMap[packet.mac_address].last_seen = new Date();
 
-                        if (isDateDeltaEnough && isSignalStrengthDeltaEnough) {
-                            fsm.allDayMap[packet.mac_address].measurements
-                            .push(
-                            {
-                                date: new Date(),
-                                signal_strength: packet.signal_strength
-                            });
-                        }
+                        fsm.allDayMap[packet.mac_address].measurements
+                        .push(
+                        {
+                            date: new Date(),
+                            signal_strength: packet.signal_strength
+                        });
                     }
                 }
             });
@@ -450,7 +436,7 @@ function createFsmWifi () {
 
                 if (obj.active) {
                     // When it disapears for too long, make the result anonymous.
-                    if (new Date().getTime() - obj.last_seen.getTime() >= ALL_DAY_MAX_LAST_SEEN) {
+                    if (new Date().getTime() - obj.last_seen.getTime() >= OUT_OF_SIGHT_TIMOUT) {
                         var random = Math.random().toString(36).slice(2);
                         fsm.allDayMap[random] = obj;
                         fsm.allDayMap[random].active = false;
@@ -458,20 +444,23 @@ function createFsmWifi () {
                     }
                 }
             });
-        }, ALL_DAY_MAX_LAST_SEEN / 10); // Want more precision ? Divide by more than 10
+        }, OUT_OF_SIGHT_TIMOUT / 10); // Want more precision ? Divide by more than 10
     }
 
     anonymousInterval = startAnonymisation();
 
+    function sendTrajectories() {
+        var trajectories = Object.keys(fsm.allDayMap).map(function (key) {
+            return fsm.allDayMap[key].measurements;
+        });
+
+        fsm.emit('trajectories', trajectories);
+        fsm.allDayMap = {};
+    }
+
     function startTrajectoriesSendJob() {
         return schedule.scheduleJob('00 00 * * *', function(){
-
-            var trajectories = Object.keys(fsm.allDayMap).map(function (key) {
-                return fsm.allDayMap[key].measurements;
-            });
-
-            fsm.emit('trajectories', trajectories);
-            fsm.allDayMap = {};
+            sendTrajectories();
         });
     }
 
