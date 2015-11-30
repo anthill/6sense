@@ -337,7 +337,11 @@ function createFsmWifi () {
         // start recording
         return new Promise(function(resolve, reject) {
 
-            fsm.packetReader.start(fsm.myInterface + 'mon');
+            try {
+                fsm.packetReader.start(fsm.myInterface + 'mon');
+            } catch(err) {
+                reject(err);
+            }
 
             // packetReader listener
             fsm.packetReader.on('packet', function (packet) {
@@ -435,8 +439,10 @@ function createFsmWifi () {
             if (fsm.recordInterval)
                 clearInterval(fsm.recordInterval);
 
-            fsm.packetReader.removeAllListeners('packet');
-            fsm.packetReader.stop();
+            if (fsm.packetReader) {
+                fsm.packetReader.removeAllListeners('packet');
+                fsm.packetReader.stop();
+            }
             resolve();
         });
     }
