@@ -37,7 +37,7 @@ function PacketReader() {
 
         if (tcpdumpProcess || readliner || errorReader) { // if already started
             self.emit('error', "PacketReader already started");
-            return ;
+            return;
         }
         // start tcpdump
         tcpdumpProcess = spawn('tcpdump', ['-I', '-e', '-q', '-t', '-U', '-i', monitor_interface]);

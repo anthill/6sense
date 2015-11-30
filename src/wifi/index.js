@@ -1,9 +1,7 @@
 'use strict';
 require('es6-shim');
 
-var fs = require('fs');
 var machina = require('machina');
-var spawn = require('child_process').spawn;
 var exec = require('child_process').exec; // Use exec only for little commands
 var schedule = require('node-schedule');
 
@@ -89,7 +87,7 @@ function createFsmWifi () {
                     });
                 },
 
-                record: function(period){
+                record: function(){
                     this.deferUntilTransition('monitoring');
                     this.handle('wakeUp');
                 },
@@ -141,6 +139,7 @@ function createFsmWifi () {
             "recording": {
 
                 _onEnter: function(){
+
                     console.log('============== ' + this.state + ' ==============');
                 },
 
@@ -414,7 +413,7 @@ function createFsmWifi () {
         });
     }
 
-    function stopRecording(process){
+    function stopRecording(){
         console.log('Stopping recording...');
 
         return new Promise(function(resolve) {
