@@ -3,7 +3,6 @@ require('es6-shim');
 
 var machina = require('machina');
 var exec = require('child_process').exec; // Use exec only for little commands
-var schedule = require('node-schedule');
 
 var PacketReader = require('./packet-reader');
 
@@ -448,23 +447,14 @@ function createFsmWifi () {
 
     anonymousInterval = startAnonymisation();
 
-    function sendTrajectories() {
+    function getTrajectories() {
         var trajectories = Object.keys(fsm.allDayMap).map(function (key) {
             return fsm.allDayMap[key].measurements;
         });
 
-        fsm.emit('trajectories', trajectories);
         fsm.allDayMap = {};
+        return trajectories;
     }
-
-    function startTrajectoriesSendJob() {
-        return schedule.scheduleJob('00 00 * * *', function(){
-            sendTrajectories();
-        });
-    }
-
-    // sending allDayMap measurements every night.
-    trajectoriesSendJob = startTrajectoriesSendJob();
 
     return fsm;
 }
