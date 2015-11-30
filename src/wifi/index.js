@@ -5,9 +5,11 @@ var machina = require('machina');
 var exec = require('child_process').exec; // Use exec only for little commands
 
 var PacketReader = require('./packet-reader');
+var limitedEntryMap = require('./utils.js').limitedEntryMap;
 
 var QUERY_TIMEOUT = 10*1000*2;
 var OUT_OF_SIGHT_TIMOUT = 5 * 60 * 1000; // Precision : Up to +10%
+var MAX_NB_TRAJECTORIES = 5000;
 
 function execPromise(command, callback) {
 
@@ -33,8 +35,6 @@ function createFsmWifi () {
 
     var anonymousInterval;
 
-    var trajectoriesSendJob;
-
     var fsm = new machina.Fsm({
 
         initialState: "sleeping",
@@ -42,7 +42,7 @@ function createFsmWifi () {
         myInterface: 'wlan0',
         recordInterval: null,
         instantMap: {},
-        allDayMap: {},
+        trajectoryBatch: limitedEntryMap(MAX_NB_TRAJECTORIES),
         packetReader: null,
 
         initialize: function(){
@@ -196,18 +196,6 @@ function createFsmWifi () {
                     clearInterval(anonymousInterval);
                 anonymousInterval = startAnonymisation();
             }
-        },
-
-        restartTrajectoriesSendJob: function() {
-            if (!trajectoriesSendJob)
-                trajectoriesSendJob = startTrajectoriesSendJob();
-            return trajectoriesSendJob;
-        },
-
-        stopTrajectoriesSendJob: function() {
-            if (trajectoriesSendJob)
-                trajectoriesSendJob.cancel();
-            trajectoriesSendJob = undefined;
         }
     });
 
@@ -345,9 +333,9 @@ function createFsmWifi () {
                             fsm.instantMap[packet.mac_address].push(packet.signal_strength);
                     }
 
-                    // Add to the allDayMap
-                    if (fsm.allDayMap[packet.mac_address] === undefined) {
-                        fsm.allDayMap[packet.mac_address] = {
+                    // Add to the trajectoryBatch
+                    if (fsm.trajectoryBatch.get(packet.mac_address) === undefined) {
+                        fsm.trajectoryBatch.set(packet.mac_address, {
                             last_seen: new Date(),
                             measurements:
                             [{
@@ -355,14 +343,15 @@ function createFsmWifi () {
                                 signal_strength: packet.signal_strength
                             }],
                             active: true
-                        };
+                        });
                     }
                     else {
-                        var lastMeasurement = fsm.allDayMap[packet.mac_address].measurements.slice(-1)[0];
+                        var existingTraj = fsm.trajectoryBatch.get(packet.mac_address);
+                        var lastMeasurement = existingTraj.measurements.slice(-1)[0];
 
-                        fsm.allDayMap[packet.mac_address].last_seen = new Date();
+                        existingTraj.last_seen = new Date();
 
-                        fsm.allDayMap[packet.mac_address].measurements
+                        existingTraj.measurements
                         .push(
                         {
                             date: new Date(),
@@ -426,19 +415,19 @@ function createFsmWifi () {
         });
     }
 
-    // allDayMap anonymisation
+    // trajectoryBatch anonymisation
     function startAnonymisation() {
         return setInterval(function () {
-            Object.keys(fsm.allDayMap).forEach(function (key) {
-                var obj = fsm.allDayMap[key];
+            fsm.trajectoryBatch.keys().forEach(function (key) {
+                var obj = fsm.trajectoryBatch.get(key);
 
                 if (obj.active) {
                     // When it disapears for too long, make the result anonymous.
                     if (new Date().getTime() - obj.last_seen.getTime() >= OUT_OF_SIGHT_TIMOUT) {
                         var random = Math.random().toString(36).slice(2);
-                        fsm.allDayMap[random] = obj;
-                        fsm.allDayMap[random].active = false;
-                        delete fsm.allDayMap[key];
+                        fsm.trajectoryBatch.set(random, obj);
+                        fsm.trajectoryBatch.get(random).active = false;
+                        fsm.trajectoryBatch.delete(key);
                     }
                 }
             });
@@ -448,11 +437,11 @@ function createFsmWifi () {
     anonymousInterval = startAnonymisation();
 
     function getTrajectories() {
-        var trajectories = Object.keys(fsm.allDayMap).map(function (key) {
-            return fsm.allDayMap[key].measurements;
+        var trajectories = fsm.trajectoryBatch.keys().map(function (key) {
+            return fsm.trajectoryBatch.get(key).measurements;
         });
 
-        fsm.allDayMap = {};
+        fsm.trajectoryBatch = limitedEntryMap(MAX_NB_TRAJECTORIES);
         return trajectories;
     }
 
