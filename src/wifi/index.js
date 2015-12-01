@@ -42,8 +42,17 @@ function createFsmWifi () {
         myInterface: 'wlan0',
         recordInterval: null,
         instantMap: {},
+        recordTrajectories: true,
         trajectoryBatch: limitedEntryMap(MAX_NB_TRAJECTORIES),
         packetReader: null,
+
+        stopRecordingTrajectories: function(){
+            this.recordTrajectories = false;
+        },
+
+        startRecordingTrajectories: function(){
+            this.recordTrajectories = true;
+        },
 
         initialize: function(){
             if (this.packetReader) {
@@ -333,30 +342,32 @@ function createFsmWifi () {
                             fsm.instantMap[packet.mac_address].push(packet.signal_strength);
                     }
 
-                    // Add to the trajectoryBatch
-                    if (fsm.trajectoryBatch.get(packet.mac_address) === undefined) {
-                        fsm.trajectoryBatch.set(packet.mac_address, {
-                            last_seen: new Date(),
-                            measurements:
-                            [{
+                    if (recordTrajectories){
+                        // Add to the trajectoryBatch
+                        if (fsm.trajectoryBatch.get(packet.mac_address) === undefined) {
+                            fsm.trajectoryBatch.set(packet.mac_address, {
+                                last_seen: new Date(),
+                                measurements:
+                                [{
+                                    date: new Date(),
+                                    signal_strength: packet.signal_strength
+                                }],
+                                active: true
+                            });
+                        }
+                        else {
+                            var existingTraj = fsm.trajectoryBatch.get(packet.mac_address);
+                            var lastMeasurement = existingTraj.measurements.slice(-1)[0];
+
+                            existingTraj.last_seen = new Date();
+
+                            existingTraj.measurements
+                            .push(
+                            {
                                 date: new Date(),
                                 signal_strength: packet.signal_strength
-                            }],
-                            active: true
-                        });
-                    }
-                    else {
-                        var existingTraj = fsm.trajectoryBatch.get(packet.mac_address);
-                        var lastMeasurement = existingTraj.measurements.slice(-1)[0];
-
-                        existingTraj.last_seen = new Date();
-
-                        existingTraj.measurements
-                        .push(
-                        {
-                            date: new Date(),
-                            signal_strength: packet.signal_strength
-                        });
+                            });
+                        }
                     }
                 }
             });
