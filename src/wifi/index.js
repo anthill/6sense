@@ -8,7 +8,7 @@ var PacketReader = require('./packet-reader');
 var limitedEntryMap = require('./utils.js').limitedEntryMap;
 
 var QUERY_TIMEOUT = 10*1000*2;
-var OUT_OF_SIGHT_TIMOUT = 5 * 60 * 1000; // Precision : Up to +10%
+var OUT_OF_SIGHT_TIMEOUT = 5 * 60 * 1000; // Precision : Up to +10%
 var MAX_NB_TRAJECTORIES = 5000;
 
 function execPromise(command, callback) {
@@ -198,7 +198,7 @@ function createFsmWifi () {
                 return false;
 
             if (configObj.max_last_seen) {
-                OUT_OF_SIGHT_TIMOUT = configObj.max_last_seen;
+                OUT_OF_SIGHT_TIMEOUT = configObj.max_last_seen;
 
                 // Also restart anonymisation
                 if (anonymousInterval)
@@ -327,7 +327,11 @@ function createFsmWifi () {
         // start recording
         return new Promise(function(resolve, reject) {
 
-            fsm.packetReader.start(fsm.myInterface + 'mon');
+            try {
+                fsm.packetReader.start(fsm.myInterface + 'mon');
+            } catch(err) {
+                reject(err);
+            }
 
             // packetReader listener
             fsm.packetReader.on('packet', function (packet) {
@@ -342,7 +346,7 @@ function createFsmWifi () {
                             fsm.instantMap[packet.mac_address].push(packet.signal_strength);
                     }
 
-                    if (recordTrajectories){
+                    if (fsm.recordTrajectories){
                         // Add to the trajectoryBatch
                         if (fsm.trajectoryBatch.get(packet.mac_address) === undefined) {
                             fsm.trajectoryBatch.set(packet.mac_address, {
@@ -382,12 +386,20 @@ function createFsmWifi () {
                     }, 0) / (fsm.instantMap[key].length || 1));
                 });
 
+                var variances = Object.keys(fsm.instantMap).map(function (key, index) {
+                    return fsm.instantMap[key]
+                    .reduce(function(sum, a) {
+                        return sum + Math.pow(a - signal_strengths[index], 2);
+                    }, 0) / (fsm.instantMap[key].length || 1);
+                });
+
                 // Create an object with the good format
                 var toSend = {};
                 toSend.date = new Date();
-                toSend.devices = signal_strengths.map(function (signal) {
+                toSend.devices = signal_strengths.map(function (signal, index) {
                     return {
-                        signal_strength: signal
+                        signal_strength: signal,
+                        variance: variances[index]
                     };
                 });
 
@@ -420,8 +432,10 @@ function createFsmWifi () {
             if (fsm.recordInterval)
                 clearInterval(fsm.recordInterval);
 
-            fsm.packetReader.removeAllListeners('packet');
-            fsm.packetReader.stop();
+            if (fsm.packetReader) {
+                fsm.packetReader.removeAllListeners('packet');
+                fsm.packetReader.stop();
+            }
             resolve();
         });
     }
@@ -434,7 +448,7 @@ function createFsmWifi () {
 
                 if (obj.active) {
                     // When it disapears for too long, make the result anonymous.
-                    if (new Date().getTime() - obj.last_seen.getTime() >= OUT_OF_SIGHT_TIMOUT) {
+                    if (new Date().getTime() - obj.last_seen.getTime() >= OUT_OF_SIGHT_TIMEOUT) {
                         var random = Math.random().toString(36).slice(2);
                         fsm.trajectoryBatch.set(random, obj);
                         fsm.trajectoryBatch.get(random).active = false;
@@ -442,7 +456,7 @@ function createFsmWifi () {
                     }
                 }
             });
-        }, OUT_OF_SIGHT_TIMOUT / 10); // Want more precision ? Divide by more than 10
+        }, OUT_OF_SIGHT_TIMEOUT / 10); // Want more precision ? Divide by more than 10
     }
 
     anonymousInterval = startAnonymisation();
