@@ -379,6 +379,7 @@ function createFsmWifi () {
             // measurements emitter (instant mode)
             fsm.recordInterval = setInterval(function () {
                 // make the average of signal strengths
+
                 var signal_strengths = Object.keys(fsm.instantMap).map(function (key) {
                     return Math.round(fsm.instantMap[key]
                     .reduce(function(sum, a) {
@@ -386,11 +387,11 @@ function createFsmWifi () {
                     }, 0) / (fsm.instantMap[key].length || 1));
                 });
 
-                var variances = Object.keys(fsm.instantMap).map(function (key, index) {
-                    return fsm.instantMap[key]
+                var stds = Object.keys(fsm.instantMap).map(function (key, index) {
+                    return Math.sqrt(fsm.instantMap[key]
                     .reduce(function(sum, a) {
                         return sum + Math.pow(a - signal_strengths[index], 2);
-                    }, 0) / (fsm.instantMap[key].length || 1);
+                    }, 0) / (fsm.instantMap[key].length || 1));
                 });
 
                 // Create an object with the good format
@@ -399,7 +400,7 @@ function createFsmWifi () {
                 toSend.devices = signal_strengths.map(function (signal, index) {
                     return {
                         signal_strength: signal,
-                        variance: variances[index]
+                        std: stds[index]
                     };
                 });
 
