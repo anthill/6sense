@@ -1,6 +1,6 @@
 {
   "name": "6sense",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "Counting wifi/bluetooth devices",
   "main": "./src/index.js",
   "scripts": {

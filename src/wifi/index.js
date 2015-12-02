@@ -205,6 +205,15 @@ function createFsmWifi () {
                     clearInterval(anonymousInterval);
                 anonymousInterval = startAnonymisation();
             }
+        },
+
+        getTrajectories: function() {
+            var trajectories = fsm.trajectoryBatch.keys().map(function (key) {
+                return fsm.trajectoryBatch.get(key).measurements;
+            });
+
+            fsm.trajectoryBatch = limitedEntryMap(MAX_NB_TRAJECTORIES);
+            return trajectories;
         }
     });
 
@@ -461,15 +470,6 @@ function createFsmWifi () {
     }
 
     anonymousInterval = startAnonymisation();
-
-    function getTrajectories() {
-        var trajectories = fsm.trajectoryBatch.keys().map(function (key) {
-            return fsm.trajectoryBatch.get(key).measurements;
-        });
-
-        fsm.trajectoryBatch = limitedEntryMap(MAX_NB_TRAJECTORIES);
-        return trajectories;
-    }
 
     return fsm;
 }
