@@ -42,7 +42,9 @@ function createFsmWifi () {
         macAddresses: [],
 
         trackAddress: function(address) {
-        	this.macAddresses.push(address.toUpperCase())
+        	if(!this.macAddresses.includes(address.toUpperCase())){
+        		this.macAddresses.push(address.toUpperCase())
+        	}
     	},
 
         initialize: function(){

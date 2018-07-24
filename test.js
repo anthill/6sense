@@ -6,7 +6,7 @@ dongle.trackAddress("C4:61:8B:C0:89:A2")
 dongle.record(20);
 
 dongle.on('processed', function(result){
-	console.log("=> ", JSON.stringify(result));
+	console.log(JSON.stringify(result));
 });
 
 dongle.on('macDetected', function(result){
