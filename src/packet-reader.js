@@ -94,9 +94,9 @@ function PacketReader() {
             var receiver = match ? match[1].toUpperCase() : undefined;
 
             if (mac_address !== undefined && signal_strength !== undefined) {
-                if(type === 'Probe Request'){
-                    console.log(line)
-                }
+                // if(type === 'Probe Request'){
+                //     console.log(line)
+                // }
                 self.emit('packet', {
                     mac_address: mac_address,
                     receiver: receiver,
