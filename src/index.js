@@ -8,8 +8,6 @@ var PacketReader = require('./packet-reader');
 var limitedEntryMap = require('./utils.js').limitedEntryMap;
 
 var QUERY_TIMEOUT = 10*1000*2;
-var OUT_OF_SIGHT_TIMEOUT = 5 * 60 * 1000; // Precision : Up to +10%
-var MAX_NB_TRAJECTORIES = 5000;
 
 function execPromise(command, callback) {
 
@@ -33,8 +31,6 @@ function execPromise(command, callback) {
 
 function createFsmWifi () {
 
-    var anonymousInterval;
-
     var fsm = new machina.Fsm({
 
         initialState: "sleeping",
@@ -42,17 +38,12 @@ function createFsmWifi () {
         myInterface: 'wlan0',
         recordInterval: null,
         instantMap: {},
-        recordTrajectories: true,
-        trajectoryBatch: limitedEntryMap(MAX_NB_TRAJECTORIES),
         packetReader: null,
+        macAddresses: [],
 
-        stopRecordingTrajectories: function(){
-            this.recordTrajectories = false;
-        },
-
-        startRecordingTrajectories: function(){
-            this.recordTrajectories = true;
-        },
+        trackAddress: function(address) {
+        	this.macAddresses.push(address.toUpperCase())
+    	},
 
         initialize: function(){
             if (this.packetReader) {
@@ -191,29 +182,6 @@ function createFsmWifi () {
 
         pause: function(){
             this.handle('pause');
-        },
-
-        changeAllDayConfig: function(configObj) {
-            if (!configObj)
-                return false;
-
-            if (configObj.max_last_seen) {
-                OUT_OF_SIGHT_TIMEOUT = configObj.max_last_seen;
-
-                // Also restart anonymisation
-                if (anonymousInterval)
-                    clearInterval(anonymousInterval);
-                anonymousInterval = startAnonymisation();
-            }
-        },
-
-        getTrajectories: function() {
-            var trajectories = fsm.trajectoryBatch.keys().map(function (key) {
-                return fsm.trajectoryBatch.get(key).measurements;
-            });
-
-            fsm.trajectoryBatch = limitedEntryMap(MAX_NB_TRAJECTORIES);
-            return trajectories;
         }
     });
 
@@ -345,6 +313,10 @@ function createFsmWifi () {
             // packetReader listener
             fsm.packetReader.on('packet', function (packet) {
 
+            	if(fsm.macAddresses.includes(packet.mac_address)){
+                    fsm.emit('macDetected', packet)
+                }
+
                 if (packet.type === 'Probe Request' || packet.type === 'other') {
                     // Add to the instantMap
                     if (fsm.instantMap[packet.mac_address] === undefined) {
@@ -353,34 +325,6 @@ function createFsmWifi () {
                     else {
                         if (packet.signal_strength !== fsm.instantMap[packet.mac_address].slice(-1)[0])
                             fsm.instantMap[packet.mac_address].push(packet.signal_strength);
-                    }
-
-                    if (fsm.recordTrajectories){
-                        // Add to the trajectoryBatch
-                        if (fsm.trajectoryBatch.get(packet.mac_address) === undefined) {
-                            fsm.trajectoryBatch.set(packet.mac_address, {
-                                last_seen: new Date(),
-                                measurements:
-                                [{
-                                    date: new Date(),
-                                    signal_strength: packet.signal_strength
-                                }],
-                                active: true
-                            });
-                        }
-                        else {
-                            var existingTraj = fsm.trajectoryBatch.get(packet.mac_address);
-                            var lastMeasurement = existingTraj.measurements.slice(-1)[0];
-
-                            existingTraj.last_seen = new Date();
-
-                            existingTraj.measurements
-                            .push(
-                            {
-                                date: new Date(),
-                                signal_strength: packet.signal_strength
-                            });
-                        }
                     }
                 }
             });
@@ -419,7 +363,6 @@ function createFsmWifi () {
 
             }, period * 1000);
 
-
             // the packetReader throws an error at startup. in order to say that it's recording.
             // We listen to it and resolve when this "error" appears.
             fsm.packetReader.once('error', function(){
@@ -449,27 +392,6 @@ function createFsmWifi () {
             resolve();
         });
     }
-
-    // trajectoryBatch anonymisation
-    function startAnonymisation() {
-        return setInterval(function () {
-            fsm.trajectoryBatch.keys().forEach(function (key) {
-                var obj = fsm.trajectoryBatch.get(key);
-
-                if (obj.active) {
-                    // When it disapears for too long, make the result anonymous.
-                    if (new Date().getTime() - obj.last_seen.getTime() >= OUT_OF_SIGHT_TIMEOUT) {
-                        var random = Math.random().toString(36).slice(2);
-                        fsm.trajectoryBatch.set(random, obj);
-                        fsm.trajectoryBatch.get(random).active = false;
-                        fsm.trajectoryBatch.delete(key);
-                    }
-                }
-            });
-        }, OUT_OF_SIGHT_TIMEOUT / 10); // Want more precision ? Divide by more than 10
-    }
-
-    anonymousInterval = startAnonymisation();
 
     return fsm;
 }

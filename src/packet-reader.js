@@ -73,6 +73,9 @@ function PacketReader() {
             match = line.match(/(-\d{1,2})dB/);
             var signal_strength = match ? match[1] : undefined;
 
+            match = line.match(/Probe\sRequest\s\((.+)\)/);
+            var favorite = match ? match[1] : undefined;
+
             var type;
 
             if (line.match('Beacon'))
@@ -94,16 +97,14 @@ function PacketReader() {
             var receiver = match ? match[1].toUpperCase() : undefined;
 
             if (mac_address !== undefined && signal_strength !== undefined) {
-                // if(type === 'Probe Request'){
-                //     console.log(line)
-                // }
                 self.emit('packet', {
                     mac_address: mac_address,
                     receiver: receiver,
                     signal_strength: parseInt(signal_strength, 10),
                     type: type,
                     BSSID: BSSID,
-                    ap_name: ap_name
+                    ap_name: ap_name,
+                    favorite: favorite
                 });
             }
         });
